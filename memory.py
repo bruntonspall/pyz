@@ -35,21 +35,19 @@ class Memory:
     def set_version(self, version):
         self.version = version
     def high_mem_start(self):
-        return self.loadb(0x04)
+        return self.get_byte(0x04)
     def static_mem_start(self):
-        return self.loadb(0x0e)
+        return self.get_byte(0x0e)
     def get_type_at(self, address):
         if address < 64: return HEADER
         if address >= self.size(): return NONE
         if address >= 64 and address < self.static_mem_start(): return DYNAMIC
         if address >= self.static_mem_start() and address < self.high_mem_start(): return STATIC
         return HIGH
-    def _storeb(self, location, b):
-        logging.debug("Storing byte 0x%2x at 0x%2x" % (b, location)) 
+    def _put_byte(self, location, b):
         self.memorymap[location] = b
-    def _loadb(self, location):
+    def _get_byte(self, location):
         val = self.memorymap[location]
-        logging.debug("Getting byte 0x%2x at 0x%2x" % (val, location))
         return val
     def _guard(self, location, write = False):
         if self.get_type_at(location) == HIGH: raise OutOfRangeException(location)
@@ -60,19 +58,21 @@ class Memory:
         if self.version == 8: mult = 8
         return location * mult
         
-    def storeb(self, location, b):
+    def put_byte(self, location, b):
         self._guard(location, True)
-        self._storeb(location, b)
-    def loadb(self, location):
+        self._put_byte(location, b)
+    def get_byte(self, location):
         self._guard(location)
-        return self._loadb(location)
-    def loadw(self, location):
+        return self._get_byte(location)
+    def get_2byte(self, location):
         self._guard(location*2)
-        return 256*self._loadb(location*2)+self._loadb(location*2+1)
-    def storew(self, location, b):
+        value = 256*self._get_byte(location*2)+self._get_byte(location*2+1)
+        logging.debug('Getting 2byte %04x from location %04x' % (value, location*2))
+        return value
+    def put_2byte(self, location, b):
         self._guard(location*2, True)
-        self._storeb(location*2, b//256)
-        self._storeb(location*2+1, b%256)
+        self._put_byte(location*2, b//256)
+        self._put_byte(location*2+1, b%256)
     def loadp(self, location):
         location = self._calc_location_p(location)
-        return self._loadb(location)
+        return self._get_byte(location)
