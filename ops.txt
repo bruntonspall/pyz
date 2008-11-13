@@ -1,49 +1,3 @@
-# forms
-FORM_LONG = 0x00
-FORM_SHORT = 0x01
-FORM_EXTENDED = 0x02
-FORM_VARIABLE = 0x03
-
-# Operand Types
-COUNT_0OP = 0x01
-COUNT_1OP = 0x02
-COUNT_2OP = 0x03
-COUNT_VAR = 0x04
-COUNT_EXT = 0x05
-
-TYPE_LARGE = 0x00
-TYPE_SMALL = 0x01
-TYPE_VAR = 0x02
-TYPE_OMIT = 0x03
-
-#OPCODES
-ops = []
-for x in range(COUNT_EXT+1):
-    ops.append([])
-    ops[x] = []
-    for y in range(9):
-        ops[x].append({})
-        
-class NotImplemented:
-    pass
-
-#2OP
-class Operation:
-    def __init__(self, count, opcode, store, branch, versions = [1,2,3,4,5,6,7]):
-        self.opcode = opcode
-        self.store = store
-        self.branch = branch
-        for v in versions:
-            ops[count][v][opcode] = self
-    def execute(self, cpu, instance):
-        raise NotImplemented
-        
-
-VERSION_4UP = [4,5,6,7,8]
-VERSION_5UP = [5,6,7,8]
-VERSION_6UP = [6,7,8]
-VERSION_PRE5 = [1,2,3,4]
-        
 op_je =         Operation(COUNT_2OP, 0x01, False, True) 
 op_jl =         Operation(COUNT_2OP, 0x02, False, True)  
 op_jg =         Operation(COUNT_2OP, 0x03, False, True) 
@@ -73,8 +27,6 @@ op_call_2n =    Operation(COUNT_2OP, 0x1A, False,False, VERSION_4UP)
 op_set_colour = Operation(COUNT_2OP, 0x1B, False,False, [5])
 op_set_colour6 = Operation(COUNT_2OP, 0x1B, False,False, VERSION_6UP)
 op_throw = Operation(COUNT_2OP, 0x1C, False,False, VERSION_5UP)
-
-                  
 op_jz =         Operation(COUNT_1OP, 0x00, False, True)
 op_get_sibling = Operation(COUNT_1OP, 0x01, True, True)
 op_get_child =  Operation(COUNT_1OP, 0x02, True, True)
@@ -91,10 +43,7 @@ op_jump =       Operation(COUNT_1OP, 0x0C, False,False)
 op_print_paddr = Operation(COUNT_1OP, 0x0D, False,False)
 op_load =       Operation(COUNT_1OP, 0x0E, True,False)
 op_not =        Operation(COUNT_1OP, 0x0F, True,False, VERSION_PRE5)
-#Version 5 and above only... how to represent?
 op_call_1n =    Operation(COUNT_1OP, 0x0F, False,False, VERSION_5UP)
-
-# 0OP operations
 op_rtrue =          Operation(COUNT_0OP, 0x00, False, False)#    0OP:176 0       rtrue
 op_rfalse =         Operation(COUNT_0OP, 0x01, False, False)#    0OP:177 1       rfalse
 op_print =          Operation(COUNT_0OP, 0x02, False, False)#    0OP:178 2       print (literal-string)
@@ -117,15 +66,8 @@ op_show_status4 =    Operation(COUNT_0OP, 0x0C, False, False, VERSION_4UP)#     
 op_verify =         Operation(COUNT_0OP, 0x0D, False, True, [3,4,5,6,7,8])#  * 0OP:189 D    3  verify ?(label)
 op_ext =            Operation(COUNT_0OP, 0x0E, False, False, VERSION_5UP)#    0OP:190 E    5  [first byte of extended opcode]
 op_piracy =         Operation(COUNT_0OP, 0x0F, False, True, VERSION_5UP)#  * 0OP:191 F   5/- piracy ?(label)
-
-# VAR op calls
-#
-#St Br Opcode Hex  V Inform name and syntax
 op_call = Operation(COUNT_VAR, 0x00, True,False, [1,2,3])
 op_call_vs = Operation(COUNT_VAR, 0x00, True,False, VERSION_4UP)
-def execute(self, cpu, instance):
-    pass
-op_call_vs.execute = execute
 op_storew  = Operation(COUNT_VAR, 0x01, False, False)#      VAR:225 1      storew array word-index value
 op_storeb  = Operation(COUNT_VAR, 0x02, False, False)#      VAR:226 2      storeb array byte-index value
 op_put_prop = Operation(COUNT_VAR, 0x03, False, False)#      VAR:227 3      put_prop object property value
@@ -164,10 +106,6 @@ op_encode_text = Operation(COUNT_VAR, 0x1C, False, False)#      VAR:252 1C  5 en
 op_copy_table = Operation(COUNT_VAR, 0x1D, False, False)#      VAR:253 1D  5 copy_table first second size
 op_print_table = Operation(COUNT_VAR, 0x1E, False, False)#  VAR:254 1E      5 print_table zscii-text width height skip
 op_check_arg_count = Operation(COUNT_VAR, 0x1F, False, True )#* VAR:255 1F      5 check_arg_count argument-number
-
-
-#EXT Codes
-# St Br Opcode Hex  V Inform name and syntax
 op_ext_save = Operation(COUNT_EXT, 0x00, True , False)#*     EXT:0 0     5 save table bytes name -> (result)
 op_ext_restore = Operation(COUNT_EXT, 0x01, True , False)#*     EXT:1   1   5 restore table bytes name -> (result)
 op_ext_log_shift = Operation(COUNT_EXT, 0x02, True , False)#*     EXT:2   2   5 log_shift number places -> (result)
@@ -194,4 +132,3 @@ op_ext_put_wind_prop = Operation(COUNT_EXT, 0x19, False, False)#      EXT:25 19 
 op_ext_print_form = Operation(COUNT_EXT, 0x1A, False, False)#      EXT:26 1A   6 print_form formatted-table
 op_ext_make_menu = Operation(COUNT_EXT, 0x1B, False, True )#   * EXT:27 1B    6 make_menu number table ?(label)
 op_ext_picture_table = Operation(COUNT_EXT, 0x1C, False, False)#      EXT:28 1C   6 picture_table table
-

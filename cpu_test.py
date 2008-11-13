@@ -21,7 +21,7 @@ class testOpcodeTranslation(unittest.TestCase):
         # Short form if bit 8 is set, i.e. 0x80 and above
         # Opcode is in bits 3-0 (i.e. 0x0F)
         # Type is in bits 5-4 (i.e. 0x30) 
-        self.mock_memory.get_high_byte(0x00).AndReturn(0x80) # operation 80
+        self.mock_memory.get_high_byte(0x00).AndReturn(0x85) # operation 80
         self.mock_memory.get_high_byte(0x01).AndReturn(0x01) # operand 1
         self.mock_memory.get_high_byte(0x02).AndReturn(0x02) # operand 1
         self.mock_memory.get_high_byte(0x03).AndReturn(0x97) # operation 80
@@ -29,7 +29,7 @@ class testOpcodeTranslation(unittest.TestCase):
         self.mock_memory.get_high_byte(0x05).AndReturn(0xA3) # operation 80
         self.mock_memory.get_high_byte(0x06).AndReturn(0x06) # operand 1
         self.mock_memory.get_high_byte(0x07).AndReturn(0x00) # operand 1
-        self.mock_memory.get_high_byte(0x08).AndReturn(0xB5) # operation 80
+        self.mock_memory.get_high_byte(0x08).AndReturn(0xB0) # operation 80
         
         self.mymox.ReplayAll()
         # If Type is omitted, count is 0OP, else count is 1OP
@@ -37,7 +37,7 @@ class testOpcodeTranslation(unittest.TestCase):
         self.assertEquals(opcodes.FORM_SHORT,op.form)
         self.assertEquals(opcodes.COUNT_1OP,op.op_count)
         self.assertEquals(opcodes.TYPE_LARGE,op.optypes[0])
-        self.assertEquals(0x00,op.opcode)
+        self.assertEquals(0x05,op.opcode)
         self.assertEquals(0x0102,op.operands[0])
         op = self.cpu.get_next_op()
         self.assertEquals(opcodes.FORM_SHORT,op.form)
@@ -53,7 +53,7 @@ class testOpcodeTranslation(unittest.TestCase):
         op = self.cpu.get_next_op()
         self.assertEquals(opcodes.COUNT_0OP,op.op_count)
         self.assertEquals(opcodes.TYPE_OMIT,op.optypes[0])
-        self.assertEquals(0x05,op.opcode)
+        self.assertEquals(0x00,op.opcode)
         
         self.mymox.VerifyAll()                
     # Spec 4.3.2
@@ -96,12 +96,12 @@ class testOpcodeTranslation(unittest.TestCase):
     # Spec 4.3.3
     # Spec 4.4.3
     def testCanTranslateVariableForm(self):
-        self.mock_memory.get_high_byte(0x00).AndReturn(0xC1)
+        self.mock_memory.get_high_byte(0x00).AndReturn(0xCB)
         self.mock_memory.get_high_byte(0x01).AndReturn(0x1F) #00011111 (Large, Small, Omit, Omit)
         self.mock_memory.get_high_byte(0x02).AndReturn(0x01)
         self.mock_memory.get_high_byte(0x03).AndReturn(0x02)
         self.mock_memory.get_high_byte(0x04).AndReturn(0x03)
-        self.mock_memory.get_high_byte(0x05).AndReturn(0xD2)
+        self.mock_memory.get_high_byte(0x05).AndReturn(0xE1)
         self.mock_memory.get_high_byte(0x06).AndReturn(0x27) #00100111 (Large, Var, Small, Omit)
         self.mock_memory.get_high_byte(0x07).AndReturn(0x07)
         self.mock_memory.get_high_byte(0x08).AndReturn(0x08)
@@ -112,7 +112,7 @@ class testOpcodeTranslation(unittest.TestCase):
         op = self.cpu.get_next_op()
         self.assertEquals(opcodes.FORM_VARIABLE,  op.form)
         self.assertEquals(opcodes.COUNT_2OP,  op.op_count)
-        self.assertEquals(0x01,  op.opcode)
+        self.assertEquals(0x0B,  op.opcode)
         self.assertEquals(2, len(op.operands))
         self.assertEquals(opcodes.TYPE_LARGE,op.optypes[0])
         self.assertEquals(opcodes.TYPE_SMALL,op.optypes[1])
@@ -122,7 +122,7 @@ class testOpcodeTranslation(unittest.TestCase):
         op = self.cpu.get_next_op()
         self.assertEquals(opcodes.FORM_VARIABLE,  op.form)
         self.assertEquals(opcodes.COUNT_VAR,  op.op_count)
-        self.assertEquals(0x12,  op.opcode)
+        self.assertEquals(0x01,  op.opcode)
         self.assertEquals(3, len(op.operands))
         self.assertEquals(opcodes.TYPE_LARGE,op.optypes[0])
         self.assertEquals(opcodes.TYPE_VAR,op.optypes[1])
@@ -172,6 +172,36 @@ class testOpcodeTranslation(unittest.TestCase):
         self.assertEquals(0x0F,op.operands[0])
         self.assertEquals(0x00,op.store)
     
+    def testUnderstandsBranchOperations(self):
+        self.mock_memory.get_high_byte(0x00).AndReturn(0xA0) # op A0
+        self.mock_memory.get_high_byte(0x01).AndReturn(0x00) # operand 1
+        self.mock_memory.get_high_byte(0x02).AndReturn(0xC0) # Branch if true, 0 offset 
+        
+        self.mock_memory.get_high_byte(0x03).AndReturn(0xA0) # op A0
+        self.mock_memory.get_high_byte(0x04).AndReturn(0x00) # operand 1
+        self.mock_memory.get_high_byte(0x05).AndReturn(0x01) # branch if false, 2 byte offset, 0x100
+        self.mock_memory.get_high_byte(0x06).AndReturn(0x00)
+        self.mymox.ReplayAll()
+        op = self.cpu.get_next_op()
+        self.assertEquals(0x00,op.branch)
+        self.assertEquals(True,op.branch_condition)
+
+        op = self.cpu.get_next_op()
+        self.assertEquals(0x100,op.branch)
+        self.assertEquals(False,op.branch_condition)
+        self.mymox.VerifyAll()                
+
+    def testUnderstandsTextOpcodes(self):
+        self.mock_memory.get_high_byte(0x00).AndReturn(0xB2) # op print
+        self.mock_memory.get_high_byte(0x01).AndReturn(0x00) # operand 1
+        self.mock_memory.get_high_byte(0x02).AndReturn(0x00) # branch if false, 2 byte offset, 0x100
+        self.mock_memory.get_high_byte(0x03).AndReturn(0x80) # operand 1
+        self.mock_memory.get_high_byte(0x04).AndReturn(0x00) # branch if false, 2 byte offset, 0x100
+        self.mymox.ReplayAll()
+        op = self.cpu.get_next_op()
+        self.mymox.VerifyAll()                
+        self.assertEquals(0x05, self.cpu.get_pc())
+        
         
 class testGameState(unittest.TestCase):
     def setUp(self):
@@ -222,13 +252,19 @@ class testRoutines(unittest.TestCase):
         self.memory = memory.Memory( zcode_add.zcode )
         self.cpu = cpu.CPU(self.memory)
         self.cpu.init()
+        # Call internal function to seperate fetch/execute cycle
+        self.cpu._fetch()
         self.assertEquals(1, len(self.cpu.next_op.operands))
-#        self.assertEquals(1, len(self.cpu.callstack))
+        self.assertEquals(1, len(self.cpu.callstack))
         self.assertEquals(opcodes.op_call_vs.opcode, self.cpu.next_op.opcode)
-#        self.cpu.step()
-#        self.assertEquals(2, len(self.cpu.next_op.operands))
-#        self.assertEquals(opcodes.call_2n, self.cpu.next_op.op_code)
-#        self.assertEquals(2, len(self.cpu.callstack))
+        self.cpu._execute()
+        
+        # Get next instruction... execute should ahve pushed us 1 level down and 
+        # jumped to the branch point
+        self.cpu._fetch()
+        self.assertEquals(2, len(self.cpu.next_op.operands))
+        self.assertEquals(opcodes.call_2n, self.cpu.next_op.op_code)
+        self.assertEquals(2, len(self.cpu.callstack))
 #        self.cpu.step()
 #        self.assertEquals(2, len(self.cpu.next_op.operands))
 #        self.assertEquals(opcodes.add, self.cpu.next_op.op_code)
