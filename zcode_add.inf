@@ -1,0 +1,21 @@
+Constant Num1 = 1;
+Release 2;
+
+
+[ Add x;
+    return x + Num1;
+];            
+
+[ Main;
+    
+    Add(7);
+    
+    return 2;
+  ];
+
+
+
+
+
+
+

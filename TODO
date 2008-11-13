@@ -1,0 +1,12 @@
+TODO
+
+cpu call stack support (i.e. store local variables and stack on function call)
+cpu opcode execution
+ - Simple mathmatical codes
+ - opcodes that branch
+ - object tree opcodes
+ - io stream opcodes
+object tree
+dictionary
+lexical analysis of input
+Full header support
