@@ -16,8 +16,14 @@ class ztext:
             text += [(word&0x7c00)>>10, (word&0x03e0)>>5, word&0x001f]
         return text
 
-def to_ascii(zchars):
+def to_zscii(zchars):
+    alphabet = 'a'
     output = ""
     for zch in zchars:
-        output += chr(ord('a')+zch -6)
+        if zch > 5:
+            output += chr(ord(alphabet)+zch -6)
+            alphabet = 'a'
+        else:
+            if zch == 4:
+                alphabet = 'A'
     return output

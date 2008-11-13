@@ -69,6 +69,8 @@ class Memory:
         value = 256*self._get_byte(location*2)+self._get_byte(location*2+1)
         logging.debug('Getting 2byte %04x from location %04x' % (value, location*2))
         return value
+    def get_high_byte(self, location):
+        return self._get_byte(location)
     def put_2byte(self, location, b):
         self._guard(location*2, True)
         self._put_byte(location*2, b//256)
