@@ -1,0 +1,14 @@
+Constant Num1 = 1;
+Release 2;
+
+
+[ Add x;
+    return x + Num1;
+];            
+
+[ Main;
+    
+    print "Added 7 to constant";
+    print Add(7);
+    return 2;
+  ];
