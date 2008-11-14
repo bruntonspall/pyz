@@ -11,5 +11,9 @@ class testActualZFile(unittest.TestCase):
         self.cpu.step()
         self.cpu.step()
         self.cpu.step()
+        self.cpu.step()
+        self.cpu.step()
+        self.cpu.step()
+        self.assertRaises(cpu.EndOfExecution, self.cpu.step)
 if __name__ == '__main__':
     unittest.main()

@@ -118,6 +118,9 @@ class Op:
     def execute(self, cpu):
         self.op.execute(cpu)
 
+class EndOfExecution:
+    pass
+
 class ExecutionContext:
     def __init__(self):
         self.stack = []
@@ -175,6 +178,8 @@ class CPU:
         
     def ret(self, value = None):
         old_context = self.callstack.pop(0)
+        if len(self.callstack) == 1:
+            raise EndOfExecution()
         old_context.on_ret(value)        
         
     def set_pc(self, pc):

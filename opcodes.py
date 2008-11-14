@@ -812,7 +812,7 @@ class op_ret_popped:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.ret(cpu.get_variable(0))
 for v in ALL_VERSIONS:
     ops[COUNT_0OP][v][0x08] = op_ret_popped
 
@@ -1059,7 +1059,7 @@ class op_print_num:
     def __init__(self):
         pass
     def execute(self, cpu):
-        cpu.print_line("%d" % get_arg_value(self, cpu, 0))
+        cpu.print_line(ztext.from_zscii("%d" % get_arg_value(self, cpu, 0)._signed_value()))
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x06] = op_print_num
 
