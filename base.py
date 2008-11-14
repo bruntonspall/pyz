@@ -30,6 +30,8 @@ class number:
         return number(self._signed_value() | int(other))
     def __and__(self, other):
         return number(self._signed_value() & int(other))
+    def __invert__(self):
+        return number(~self._signed_value())
         
     def __repr__(self):
         return "0x%04x (%d)" % (self.value, self._signed_value())

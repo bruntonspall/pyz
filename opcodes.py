@@ -238,7 +238,7 @@ class op_loadw:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.set_variable(self.store_loc, cpu.get_memory(get_arg(self, cpu, 0)+(get_arg(self, cpu, 1)*2)))
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x0F] = op_loadw
 
@@ -251,7 +251,7 @@ class op_loadb:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.set_variable(self.store_loc, cpu.get_memory(get_arg(self, cpu, 0)+get_arg(self, cpu, 1)))
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x10] = op_loadb
 
@@ -369,7 +369,7 @@ class op_call_2s:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.call(self.operands[0], [self.operands[1]], lambda r: cpu.set_variable(self.store_loc, r))
 for v in VERSION_4UP:
     ops[COUNT_2OP][v][0x19] = op_call_2s
 
@@ -512,7 +512,7 @@ class op_dec:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.set_variable(get_arg(self, cpu, 0), get_arg_value(self,cpu,0)-1)
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x06] = op_dec
 
@@ -616,7 +616,7 @@ class op_load:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.set_variable(self.store_loc, get_arg_value(self, cpu, 0))
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x0E] = op_load
 
@@ -629,7 +629,7 @@ class op_not:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.set_variable(self.store_loc, ~get_arg_value(self, cpu, 0))
 for v in VERSION_PRE5:
     ops[COUNT_1OP][v][0x0F] = op_not
 
@@ -681,7 +681,7 @@ class op_print:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.print_line(self.text)
 for v in ALL_VERSIONS:
     ops[COUNT_0OP][v][0x02] = op_print
 
@@ -1348,18 +1348,18 @@ class op_scan_table:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x17] = op_scan_table
 
-class op_not:
+class op_not5:
     opcount = COUNT_VAR
     opcode = 0x18
     store = True
     branch = False
-    versions = ALL_VERSIONS
+    versions = VERSION_5UP
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
-for v in ALL_VERSIONS:
-    ops[COUNT_VAR][v][0x18] = op_not
+        cpu.set_variable(self.store_loc, ~get_arg_value(self, cpu, 0))
+for v in VERSION_5UP:
+    ops[COUNT_VAR][v][0x18] = op_not5
 
 class op_call_vn:
     opcount = COUNT_VAR

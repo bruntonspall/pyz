@@ -220,7 +220,14 @@ class CPU:
         if var == 00:
             self.get_stack().append(value)
             
-        
+    def get_memory(self, location):
+        return self.memory.get_byte(location)
+
+    def set_memory(self, location, value):
+        return self.memory.put_byte(location, value)
+    
+    def print_line(self, text):
+        print text
 
 class StackEmpty(Exception):
     pass
