@@ -1,4 +1,5 @@
 import base
+import ztext
 
 # forms
 FORM_LONG = 0x00
@@ -1058,7 +1059,7 @@ class op_print_num:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.print_line("%d" % get_arg_value(self, cpu, 0))
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x06] = op_print_num
 

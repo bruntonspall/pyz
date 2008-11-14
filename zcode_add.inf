@@ -8,7 +8,7 @@ Release 2;
 
 [ Main;
     
-    print Add(7);
+    Add(7);
     
     return 2;
   ];

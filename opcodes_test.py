@@ -207,6 +207,16 @@ class testRoutines(unittest.TestCase):
         op.execute(self.cpu)
         self.mymox.VerifyAll()
         
+    def test_op_print_num(self):
+        op = opcodes.op_print_num()
+        op.operands = [0x10]
+        op.optypes = [opcodes.TYPE_SMALL]
+
+        self.cpu.print_line("16")
+
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
     
 
 if __name__ == '__main__':
