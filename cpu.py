@@ -22,9 +22,13 @@ class Op:
             self.handle_short_form(cpu, code)
         else:
             self.handle_long_form(cpu, code)
-        self.op = opcodes.ops[self.op_count][cpu.version][self.opcode]
+        self.op = opcodes.ops[self.op_count][cpu.version][self.opcode]()
+        self.op.operands = self.operands
+        self.op.optypes = self.optypes
+        self.op.op_count = self.op_count
         if self.op.store:
             self.store = cpu._get_next_pc_byte()
+            self.op.store_loc = self.store
         if self.op.branch:
             code = cpu._get_next_pc_byte()
             self.branch_condition = False
@@ -34,6 +38,9 @@ class Op:
                 self.branch = code & 0x3F
             else:
                 self.branch = ((code & 0x3F) << 8) + cpu._get_next_pc_byte()
+            self.op.branch_loc = self.branch
+            self.op.branch_condition = self.branch_condition
+
         if code == 0xB2 or code == 0xB3:
             self.handle_inline_text(cpu)
 
@@ -107,13 +114,13 @@ class Op:
                 self.operands.append(cpu._get_next_pc_byte())
     
     def execute(self, cpu):
-        self.op.execute(cpu, self)
+        self.op.execute(cpu)
 
 class ExecutionContext:
     def __init__(self):
         self.stack = []
         self.pc = 0x00
-        self.locals = []
+        self.locals = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
 class CPU:
     def __init__(self, memory):
@@ -130,6 +137,18 @@ class CPU:
         self.set_pc(self.memory.get_2byte(0x03))
         self.version = 0x05
         #self.next_op = self.get_next_op()
+
+    def _calc_packed_location(self, location):
+        mult = 2
+        if self.version in [4,5,6,7]: mult = 4
+        if self.version == 8: mult = 8
+        return location * mult
+    
+    def set_local(self, num, val):
+        self.callstack[0].locals[num] = val
+        
+    def get_local(self, num):
+        return self.callstack[0].locals[num]
         
     def _fetch(self):
         self.next_op = self.get_next_op()
@@ -140,6 +159,21 @@ class CPU:
     def step(self):
         self._fetch()
         self._execute()
+        
+    def call(self, location, args, result):
+        context = ExecutionContext()
+        self.callstack.insert(0, context)
+        self.set_pc(self._calc_packed_location(location))
+        num_locals = self._get_next_pc_byte()
+        context.on_ret = result
+        
+        for pos,arg in zip(range(len(args)),args):
+            self.set_local(pos+1, arg)
+            
+        
+    def ret(self, value = None):
+        old_context = self.callstack.pop(0)
+        old_context.on_ret(value)        
         
     def set_pc(self, pc):
         self.callstack[0].pc = pc
@@ -169,6 +203,8 @@ class CPU:
             self.var_start = self.memory.get_2byte(0x06)        
         if var > 0x0F:
             return self.memory.get_2byte(self.var_start + var - 0x10)
+        if var < 0x10 and var > 0x00:
+            return self.get_local(var)
         if var == 0:
             if len(self.get_stack()) == 0:
                 raise StackEmpty
@@ -179,6 +215,8 @@ class CPU:
             self.var_start = self.memory.get_2byte(0x06)        
         if var > 0x0F:
             return self.memory.put_2byte(self.var_start + var - 0x10, value)
+        if var < 0x10 and var > 0x00:
+            return self.set_local(var, value)
         if var == 00:
             self.get_stack().append(value)
             

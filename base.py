@@ -26,6 +26,10 @@ class number:
         return number(self._signed_value() * int(other))
     def __mod__(self, other):
         return number(self._signed_value() % int(other))
+    def __or__(self, other):
+        return number(self._signed_value() | int(other))
+    def __and__(self, other):
+        return number(self._signed_value() & int(other))
         
     def __repr__(self):
         return "0x%04x (%d)" % (self.value, self._signed_value())
