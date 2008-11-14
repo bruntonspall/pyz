@@ -5,6 +5,11 @@
 
 import logging
 
+alphabet1 = "\n     abcdefghijklmnopqrstuvwxyz"
+alphabet2 = "\n     ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+alphabet3 = "\n      \n0123456789.,!?_#'\"/\\-:()"
+
+
 def get_text_at(memory, location):
     text = []
     word = 0
@@ -15,29 +20,38 @@ def get_text_at(memory, location):
     return text
 
 def to_zscii(zchars):
-    alphabet = 'a'
+    alphabet = alphabet1
     output = ""
     for zch in zchars:
         if zch > 5:
-            output += chr(ord(alphabet)+zch -6)
-            alphabet = 'a'
+            output += alphabet[zch]
+            alphabet = alphabet1
         else:
             if zch == 4:
-                alphabet = 'A'
+                alphabet = alphabet2
+            if zch == 5:
+                alphabet = alphabet3
+            if zch == 0:
+                output += " "
+            if zch == 1:
+                output += "\n"
     return output
 
 def zchar_from_int(alphabet, char):
-    return ord(char)-ord(alphabet)+6
+    return alphabet.find(char)
+    #return ord(char)-ord(alphabet)+6
 
 def from_zscii(text):
-    alphabet = 'a'
     output = []
     for ch in text:
         if ch.isupper():
             output.append(4)
-            output.append(zchar_from_int("A", ch))
+            output.append(zchar_from_int(alphabet2, ch))
+        elif ch in alphabet3:
+            output.append(5)
+            output.append(zchar_from_int(alphabet3, ch))            
         else:
-            output.append(zchar_from_int("a", ch))
+            output.append(zchar_from_int(alphabet1, ch))
     append = 0
     if (len(output) % 3) != 0:
         append = (len(output) % 3)+1

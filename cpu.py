@@ -1,4 +1,5 @@
 import opcodes
+import ztext
 
 def decode_type_byte(b):
     args = []
@@ -43,6 +44,7 @@ class Op:
 
         if code == 0xB2 or code == 0xB3:
             self.handle_inline_text(cpu)
+            self.op.text = self.text
 
     def handle_inline_text(self, cpu):
         self.text = []
@@ -227,7 +229,7 @@ class CPU:
         return self.memory.put_byte(location, value)
     
     def print_line(self, text):
-        print text
+        print ztext.to_zscii(text)
 
 class StackEmpty(Exception):
     pass

@@ -32,11 +32,14 @@ class testBaseNumbers(unittest.TestCase):
         self.assertEquals("abc",ztext.to_zscii([6,7,8]))
         self.assertEquals("Abc",ztext.to_zscii([4,6,7,8]))
         self.assertEquals("", ztext.to_zscii([4,4,4,4]))
+        self.assertEquals("7!",ztext.to_zscii([5,15,5,20]))
+        self.assertEquals(" \n \n",ztext.to_zscii([0,1,5,6,5,7]))
         
     def testCanGetZtextFromZcii(self):
         self.assertEquals([6,7,8],ztext.from_zscii("abc"))
         self.assertEquals([4,4,4], ztext.from_zscii(""))
         self.assertEquals([4,6,7,8,4,4],ztext.from_zscii("Abc"))
+        self.assertEquals([5,15,5,20,4,4],ztext.from_zscii("7!"))
         
     def testCanEncodeZTextToMemory(self):
         self.assertEquals([0x98, 0xE8],ztext.to_bytes(ztext.from_zscii("abc")))
