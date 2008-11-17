@@ -1,0 +1,11 @@
+Release 1;
+
+[ Main x;
+  x = random(5);
+  if (x > 2) {
+    print "Less than two";
+  } else {
+    print "More than two";
+  }
+  quit;
+];
