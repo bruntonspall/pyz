@@ -32,6 +32,8 @@ class number:
         return number(self._signed_value() & int(other))
     def __invert__(self):
         return number(~self._signed_value())
+    def __index__(self):
+        return self._signed_value()
         
     def __repr__(self):
         return "0x%04x (%d)" % (self.value, self._signed_value())
@@ -42,3 +44,11 @@ class number:
             return number(self.value)
         else:
             return number(self.value-0xFFFF-1)
+
+def hex(val):
+    return "0x%02x" % (val)
+def to_hexlist(obj):
+    s = ""
+    for x in obj:
+        s += hex(x) + " " 
+    return s

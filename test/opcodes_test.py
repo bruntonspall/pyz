@@ -212,12 +212,93 @@ class testRoutines(unittest.TestCase):
         op.operands = [0x10]
         op.optypes = [opcodes.TYPE_SMALL]
 
-        self.cpu.print_line("16")
+        self.cpu.print_line([5, 9, 5, 14, 4, 4])
 
         self.mymox.ReplayAll()
         op.execute(self.cpu)
         self.mymox.VerifyAll()
     
+    def test_op_random(self):
+        op = opcodes.op_random()
+        op.operands = [0x5]
+        op.optypes = [opcodes.TYPE_SMALL]
+        op.store_loc = 1
+        self.cpu.generate_random(5).AndReturn(4)
+        self.cpu.set_variable(1,4)
 
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+    
+    def test_op_jump(self):
+        op = opcodes.op_jump()
+        op.operands = [0xE]
+        op.optypes = [opcodes.TYPE_SMALL]
+        self.cpu.get_pc().AndReturn(0x00)
+        self.cpu.set_pc(0x0C)
+
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+    
+    def test_op_jg(self):
+        op = opcodes.op_jg()
+        op.operands = [0x7, 0x4]
+        op.optypes = [opcodes.TYPE_SMALL, opcodes.TYPE_SMALL]
+        op.branch_loc = 0x0C
+        op.branch_condition = True
+
+        self.mymox.ResetAll()
+        # No interactions expected
+        self.mymox.ReplayAll()
+        op.operands = [0x7, 0x9]
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+        
+        self.mymox.ResetAll()
+        self.cpu.get_pc().AndReturn(0x00)
+        self.cpu.set_pc(0x0A)
+        self.mymox.ReplayAll()
+        
+        op.operands = [0x7, 0x4]
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+        
+        self.mymox.ResetAll()
+        # No interactions expected
+        self.mymox.ReplayAll()
+
+        op.branch_condition = False
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+
+        self.mymox.ResetAll()
+        self.cpu.get_pc().AndReturn(0x00)
+        self.cpu.set_pc(0x0A)
+        self.mymox.ReplayAll()
+
+        op.operands = [0x7, 0x9]
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+
+    def test_op_jg_specials(self):
+        op = opcodes.op_jg()
+        op.operands = [0x7, 0x4]
+        op.optypes = [opcodes.TYPE_SMALL, opcodes.TYPE_SMALL]
+        op.branch_loc = 0x00
+        op.branch_condition = True
+
+        self.mymox.ResetAll()
+        self.cpu.ret(0)
+        self.mymox.ReplayAll()
+        op.operands = [0x7, 0x4]
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+        self.mymox.ResetAll()
+        op.branch_loc = 0x01
+        self.cpu.ret(1)
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
 if __name__ == '__main__':
     unittest.main()

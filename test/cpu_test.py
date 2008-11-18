@@ -235,12 +235,24 @@ class testGameState(unittest.TestCase):
         self.assertEquals(0x10,self.cpu.get_variable(0x00))
         self.assertEquals(0x100,self.cpu.get_variable(0x00))
 
-class testRoutines(unittest.TestCase):
+class testRandom(unittest.TestCase):
     def setUp(self):
         self.mymox = mox.Mox()
         self.mock_memory = self.mymox.CreateMock(memory.Memory)
         self.cpu = cpu.CPU(self.mock_memory)
         self.cpu.set_pc(0x00)
+        
+    def testCanGetARandomNumber(self):
+        self.mymox.ReplayAll()
+        self.assertTrue(self.cpu.generate_random(5) <= 5)
+        self.assertTrue(self.cpu.generate_random(5) >= 1)
+        
+class testRoutines(unittest.TestCase):
+    def setUp(self):
+        self.mymox = mox.Mox()
+        self.mock_memory = self.mymox.CreateMock(memory.Memory)
+        self.cpu = cpu.CPU(self.mock_memory)
+        self.mock_memory.get_2byte(0x03).AndReturn(0x00) # op A0
         
     def testCanCallToAnotherRoutineAndReturn(self):
         # call 1s with 1OP
@@ -255,6 +267,7 @@ class testRoutines(unittest.TestCase):
         self.mock_memory.get_2byte(0x06).AndReturn(0x100) # get memory offset for variables
             
         self.mymox.ReplayAll()
+        self.cpu.init()
         self.cpu.step()
         
         self.assertEquals(0x41,self.cpu.get_pc())
@@ -280,6 +293,7 @@ class testRoutines(unittest.TestCase):
         self.mock_memory.get_high_byte(0x42).AndReturn(0x42) # value to return
             
         self.mymox.ReplayAll()
+        self.cpu.init()
         self.cpu.set_variable(1, 8)
         self.assertEquals(8, self.cpu.get_variable(1))
         self.assertEquals(0, self.cpu.get_variable(3))
@@ -298,11 +312,10 @@ class testRoutines(unittest.TestCase):
         # This test will execute from the following vm, and it's main routine adds together
         # two numbers, by setting a global variable, then calling an add function with the second
         # variable as a parameter.
-        import zcode_add
-        self.memory = memory.Memory( zcode_add.zcode )
+        self.memory = memory.Memory( [ ord(b) for b in file('zcode_print.z5').read()] )
         self.cpu = cpu.CPU(self.memory)
         self.cpu.init()
-        # Call internal function to seperate fetch/execute cycle
+
         self.cpu._fetch()
         self.assertEquals(1, len(self.cpu.next_op.operands))
         self.assertEquals(1, len(self.cpu.callstack))
@@ -310,8 +323,14 @@ class testRoutines(unittest.TestCase):
         self.cpu._execute()
         
         self.cpu._fetch()
+        self.assertEquals(0, len(self.cpu.next_op.operands))
+        self.assertEquals(opcodes.op_print.opcode, self.cpu.next_op.opcode)
+        self.assertEquals(2, len(self.cpu.callstack))
+        self.cpu._execute()
+
+        self.cpu._fetch()
         self.assertEquals(2, len(self.cpu.next_op.operands))
-        self.assertEquals(opcodes.op_call_2n.opcode, self.cpu.next_op.opcode)
+        self.assertEquals(opcodes.op_call_2s.opcode, self.cpu.next_op.opcode)
         self.assertEquals(2, len(self.cpu.callstack))
         self.cpu._execute()
 

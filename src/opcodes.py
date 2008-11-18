@@ -2,22 +2,47 @@ import base
 import ztext
 
 # forms
-FORM_LONG = 0x00
-FORM_SHORT = 0x01
-FORM_EXTENDED = 0x02
-FORM_VARIABLE = 0x03
+class Enum(object):
+    def __init__(self, val, name, holder):
+        self.val = val
+        self.name = name
+        holder[val] = self
+    def __str__(self):
+        return self.name
+    def __repr__(self):
+        return "%s (%d)" % (self.name, self.val)
+    def __int__(self):
+        return self.val
+    def __add__(self, other):
+        return self.val + other
+    def __index__(self):
+        return self.val
+    def __eq__(self, value):
+        return self.val == value
+    def __lshift__(self, value):
+        return self.val << value
+    def __rshift__(self, value):
+        return self.val >> value
+    
+FORMS = {}
+FORM_LONG = Enum(0,'Long', FORMS)
+FORM_SHORT = Enum(0x01, 'Short', FORMS)
+FORM_EXTENDED = Enum(0x02, 'Extended', FORMS)
+FORM_VARIABLE = Enum(0x03, 'Variable', FORMS)
 
+COUNTS = {}
 # Operand Types
-COUNT_0OP = 0x01
-COUNT_1OP = 0x02
-COUNT_2OP = 0x03
-COUNT_VAR = 0x04
-COUNT_EXT = 0x05
+COUNT_0OP = Enum(0x01, '0Op', COUNTS)
+COUNT_1OP = Enum(0x02, '1Op', COUNTS)
+COUNT_2OP = Enum(0x03, '2Op', COUNTS)
+COUNT_VAR = Enum(0x04, 'Var', COUNTS)
+COUNT_EXT = Enum(0x05, 'Ext', COUNTS)
 
-TYPE_LARGE = 0x00
-TYPE_SMALL = 0x01
-TYPE_VAR = 0x02
-TYPE_OMIT = 0x03
+TYPES = {}
+TYPE_LARGE = Enum(0x00, 'Large', TYPES)
+TYPE_SMALL = Enum(0x01, 'Small', TYPES)
+TYPE_VAR = Enum(0x02, 'Var  ', TYPES)
+TYPE_OMIT = Enum(0x03, 'Omit ', TYPES)
 
 #OPCODES
 ops = []
@@ -35,6 +60,7 @@ VERSION_4UP = [4,5,6,7,8]
 VERSION_5UP = [5,6,7,8]
 VERSION_6UP = [6,7,8]
 VERSION_PRE5 = [1,2,3,4]
+VERSION_PRE6 = [1,2,3,4,5]
 
 def get_arg_value(op, cpu, arg):
     a = op.operands[arg]
@@ -47,8 +73,41 @@ def get_arg(op, cpu, arg):
     a = op.operands[arg]
     return base.number(a)
 
+class base_op:
+    opcount = COUNT_0OP
+    opcode = 0x00
+    store = False
+    store_loc = 0
+    branch = True
+    branch_loc = 0
+    branch_condition = False
+    def __init__(self):
+        pass
+    def __str__(self):
+        s = ""
+        s += "%s -%s" % (base.hex(self.opcode), self.__class__)
+        s += " (%s)" % (base.to_hexlist(self.operands))
+        s += " types (%s)" % (self.optypes)
+        if self.store:
+            s += " -> (%s)" % (self.store_loc)
+        if self.branch:
+            s += " branch if %s to %s" % (self.branch_condition, base.hex(self.branch_loc))
+        s += " [%s]" % (base.to_hexlist(self.bytes))
+        return s
+ 
+    def compare(self, arg1, arg2, cmp, cpu):
+        arg1 = get_arg_value(self, cpu, arg1)._signed_value()
+        arg2 = get_arg_value(self, cpu, arg2)._signed_value()
+        result = cmp(arg1,arg2)
+        if (result == self.branch_condition):
+            if self.branch_loc == 0 or self.branch_loc == 1:
+                cpu.ret(self.branch_loc)
+            else:
+                pc = cpu.get_pc()
+                cpu.set_pc(pc -2 + self.branch_loc)
+    
 
-class op_je:
+class op_je(base_op):
     opcount = COUNT_2OP
     opcode = 0x01
     store = False
@@ -57,11 +116,11 @@ class op_je:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        self.compare(0,1,lambda a,b: a == b, cpu)
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x01] = op_je
 
-class op_jl:
+class op_jl(base_op):
     opcount = COUNT_2OP
     opcode = 0x02
     store = False
@@ -70,11 +129,11 @@ class op_jl:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        self.compare(0,1,lambda a,b: a < b, cpu)
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x02] = op_jl
 
-class op_jg:
+class op_jg(base_op):
     opcount = COUNT_2OP
     opcode = 0x03
     store = False
@@ -83,11 +142,11 @@ class op_jg:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        self.compare(0,1,lambda a,b: a > b, cpu)
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x03] = op_jg
 
-class op_dec_chk:
+class op_dec_chk(base_op):
     opcount = COUNT_2OP
     opcode = 0x04
     store = False
@@ -100,7 +159,7 @@ class op_dec_chk:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x04] = op_dec_chk
 
-class op_inc_chk:
+class op_inc_chk(base_op):
     opcount = COUNT_2OP
     opcode = 0x05
     store = False
@@ -113,7 +172,7 @@ class op_inc_chk:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x05] = op_inc_chk
 
-class op_jin:
+class op_jin(base_op):
     opcount = COUNT_2OP
     opcode = 0x06
     store = False
@@ -126,7 +185,7 @@ class op_jin:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x06] = op_jin
 
-class op_test:
+class op_test(base_op):
     opcount = COUNT_2OP
     opcode = 0x07
     store = False
@@ -139,7 +198,7 @@ class op_test:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x07] = op_test
 
-class op_or:
+class op_or(base_op):
     opcount = COUNT_2OP
     opcode = 0x08
     store = True
@@ -152,7 +211,7 @@ class op_or:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x08] = op_or
 
-class op_and:
+class op_and(base_op):
     opcount = COUNT_2OP
     opcode = 0x09
     store = True
@@ -165,7 +224,7 @@ class op_and:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x09] = op_and
 
-class op_test_attr:
+class op_test_attr(base_op):
     opcount = COUNT_2OP
     opcode = 0x0A
     store = False
@@ -178,7 +237,7 @@ class op_test_attr:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x0A] = op_test_attr
 
-class op_set_attr:
+class op_set_attr(base_op):
     opcount = COUNT_2OP
     opcode = 0x0B
     store = False
@@ -191,7 +250,7 @@ class op_set_attr:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x0B] = op_set_attr
 
-class op_clear_attr:
+class op_clear_attr(base_op):
     opcount = COUNT_2OP
     opcode = 0x0C
     store = False
@@ -204,7 +263,7 @@ class op_clear_attr:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x0C] = op_clear_attr
 
-class op_store:
+class op_store(base_op):
     opcount = COUNT_2OP
     opcode = 0x0D
     store = False
@@ -213,11 +272,11 @@ class op_store:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.set_variable(get_arg(self, cpu, 0), get_arg_value(self, cpu, 1))
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x0D] = op_store
 
-class op_insert_obj:
+class op_insert_obj(base_op):
     opcount = COUNT_2OP
     opcode = 0x0E
     store = False
@@ -230,7 +289,7 @@ class op_insert_obj:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x0E] = op_insert_obj
 
-class op_loadw:
+class op_loadw(base_op):
     opcount = COUNT_2OP
     opcode = 0x0F
     store = True
@@ -243,7 +302,7 @@ class op_loadw:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x0F] = op_loadw
 
-class op_loadb:
+class op_loadb(base_op):
     opcount = COUNT_2OP
     opcode = 0x10
     store = True
@@ -256,7 +315,7 @@ class op_loadb:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x10] = op_loadb
 
-class op_get_prop:
+class op_get_prop(base_op):
     opcount = COUNT_2OP
     opcode = 0x11
     store = True
@@ -269,7 +328,7 @@ class op_get_prop:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x11] = op_get_prop
 
-class op_get_prop_addr:
+class op_get_prop_addr(base_op):
     opcount = COUNT_2OP
     opcode = 0x12
     store = True
@@ -282,7 +341,7 @@ class op_get_prop_addr:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x12] = op_get_prop_addr
 
-class op_get_next_prop:
+class op_get_next_prop(base_op):
     opcount = COUNT_2OP
     opcode = 0x13
     store = True
@@ -295,7 +354,7 @@ class op_get_next_prop:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x13] = op_get_next_prop
 
-class op_add:
+class op_add(base_op):
     opcount = COUNT_2OP
     opcode = 0x14
     store = True
@@ -309,7 +368,7 @@ class op_add:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x14] = op_add
 
-class op_sub:
+class op_sub(base_op):
     opcount = COUNT_2OP
     opcode = 0x15
     store = True
@@ -322,7 +381,7 @@ class op_sub:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x15] = op_sub
 
-class op_mul:
+class op_mul(base_op):
     opcount = COUNT_2OP
     opcode = 0x16
     store = True
@@ -335,7 +394,7 @@ class op_mul:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x16] = op_mul
 
-class op_div:
+class op_div(base_op):
     opcount = COUNT_2OP
     opcode = 0x17
     store = True
@@ -348,7 +407,7 @@ class op_div:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x17] = op_div
 
-class op_mod:
+class op_mod(base_op):
     opcount = COUNT_2OP
     opcode = 0x18
     store = True
@@ -361,7 +420,7 @@ class op_mod:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x18] = op_mod
 
-class op_call_2s:
+class op_call_2s(base_op):
     opcount = COUNT_2OP
     opcode = 0x19
     store = True
@@ -374,7 +433,7 @@ class op_call_2s:
 for v in VERSION_4UP:
     ops[COUNT_2OP][v][0x19] = op_call_2s
 
-class op_call_2n:
+class op_call_2n(base_op):
     opcount = COUNT_2OP
     opcode = 0x1A
     store = False
@@ -387,7 +446,7 @@ class op_call_2n:
 for v in VERSION_4UP:
     ops[COUNT_2OP][v][0x1A] = op_call_2n
 
-class op_set_colour:
+class op_set_colour(base_op):
     opcount = COUNT_2OP
     opcode = 0x1B
     store = False
@@ -400,7 +459,7 @@ class op_set_colour:
 for v in [5]:
     ops[COUNT_2OP][v][0x1B] = op_set_colour
 
-class op_set_colour6:
+class op_set_colour6(base_op):
     opcount = COUNT_2OP
     opcode = 0x1B
     store = False
@@ -413,7 +472,7 @@ class op_set_colour6:
 for v in VERSION_6UP:
     ops[COUNT_2OP][v][0x1B] = op_set_colour6
 
-class op_throw:
+class op_throw(base_op):
     opcount = COUNT_2OP
     opcode = 0x1C
     store = False,False
@@ -426,7 +485,7 @@ class op_throw:
 for v in ALL_VERSIONS:
     ops[COUNT_2OP][v][0x1C] = op_throw
 
-class op_jz:
+class op_jz(base_op):
     opcount = COUNT_1OP
     opcode = 0x00
     store = False
@@ -435,11 +494,11 @@ class op_jz:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        self.compare(0,0,lambda a,b: a == 0, cpu)
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x00] = op_jz
 
-class op_get_sibling:
+class op_get_sibling(base_op):
     opcount = COUNT_1OP
     opcode = 0x01
     store = True
@@ -452,7 +511,7 @@ class op_get_sibling:
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x01] = op_get_sibling
 
-class op_get_child:
+class op_get_child(base_op):
     opcount = COUNT_1OP
     opcode = 0x02
     store = True
@@ -465,7 +524,7 @@ class op_get_child:
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x02] = op_get_child
 
-class op_get_parent:
+class op_get_parent(base_op):
     opcount = COUNT_1OP
     opcode = 0x03
     store = True
@@ -478,7 +537,7 @@ class op_get_parent:
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x03] = op_get_parent
 
-class op_get_prop_len:
+class op_get_prop_len(base_op):
     opcount = COUNT_1OP
     opcode = 0x04
     store = True
@@ -491,7 +550,7 @@ class op_get_prop_len:
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x04] = op_get_prop_len
 
-class op_inc:
+class op_inc(base_op):
     opcount = COUNT_1OP
     opcode = 0x05
     store = False
@@ -504,7 +563,7 @@ class op_inc:
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x05] = op_inc
 
-class op_dec:
+class op_dec(base_op):
     opcount = COUNT_1OP
     opcode = 0x06
     store = False
@@ -517,7 +576,7 @@ class op_dec:
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x06] = op_dec
 
-class op_print_addr:
+class op_print_addr(base_op):
     opcount = COUNT_1OP
     opcode = 0x07
     store = False
@@ -530,7 +589,7 @@ class op_print_addr:
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x07] = op_print_addr
 
-class op_call_1s:
+class op_call_1s(base_op):
     opcount = COUNT_1OP
     opcode = 0x08
     store = True
@@ -543,7 +602,7 @@ class op_call_1s:
 for v in VERSION_4UP:
     ops[COUNT_1OP][v][0x08] = op_call_1s
 
-class op_remove_obj:
+class op_remove_obj(base_op):
     opcount = COUNT_1OP
     opcode = 0x09
     store = False
@@ -556,7 +615,7 @@ class op_remove_obj:
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x09] = op_remove_obj
 
-class op_print_obj:
+class op_print_obj(base_op):
     opcount = COUNT_1OP
     opcode = 0x0A
     store = False
@@ -569,7 +628,7 @@ class op_print_obj:
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x0A] = op_print_obj
 
-class op_ret:
+class op_ret(base_op):
     opcount = COUNT_1OP
     opcode = 0x0B
     store = False
@@ -582,7 +641,7 @@ class op_ret:
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x0B] = op_ret
 
-class op_jump:
+class op_jump(base_op):
     opcount = COUNT_1OP
     opcode = 0x0C
     store = False
@@ -591,11 +650,12 @@ class op_jump:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        pc = cpu.get_pc()
+        cpu.set_pc(pc - 2 + get_arg_value(self, cpu, 0)._signed_value())
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x0C] = op_jump
 
-class op_print_paddr:
+class op_print_paddr(base_op):
     opcount = COUNT_1OP
     opcode = 0x0D
     store = False
@@ -608,7 +668,7 @@ class op_print_paddr:
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x0D] = op_print_paddr
 
-class op_load:
+class op_load(base_op):
     opcount = COUNT_1OP
     opcode = 0x0E
     store = True
@@ -621,7 +681,7 @@ class op_load:
 for v in ALL_VERSIONS:
     ops[COUNT_1OP][v][0x0E] = op_load
 
-class op_not:
+class op_not(base_op):
     opcount = COUNT_1OP
     opcode = 0x0F
     store = True
@@ -634,7 +694,7 @@ class op_not:
 for v in VERSION_PRE5:
     ops[COUNT_1OP][v][0x0F] = op_not
 
-class op_call_1n:
+class op_call_1n(base_op):
     opcount = COUNT_1OP
     opcode = 0x0F
     store = False
@@ -643,11 +703,11 @@ class op_call_1n:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.call([], [], None)
 for v in VERSION_5UP:
     ops[COUNT_1OP][v][0x0F] = op_call_1n
 
-class op_rtrue:
+class op_rtrue(base_op):
     opcount = COUNT_0OP
     opcode = 0x00
     store = False
@@ -656,11 +716,11 @@ class op_rtrue:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.ret(1)
 for v in ALL_VERSIONS:
     ops[COUNT_0OP][v][0x00] = op_rtrue
 
-class op_rfalse:
+class op_rfalse(base_op):
     opcount = COUNT_0OP
     opcode = 0x01
     store = False
@@ -669,11 +729,11 @@ class op_rfalse:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.ret(0)
 for v in ALL_VERSIONS:
     ops[COUNT_0OP][v][0x01] = op_rfalse
 
-class op_print:
+class op_print(base_op):
     opcount = COUNT_0OP
     opcode = 0x02
     store = False
@@ -686,7 +746,7 @@ class op_print:
 for v in ALL_VERSIONS:
     ops[COUNT_0OP][v][0x02] = op_print
 
-class op_print_ret:
+class op_print_ret(base_op):
     opcount = COUNT_0OP
     opcode = 0x03
     store = False
@@ -699,7 +759,7 @@ class op_print_ret:
 for v in ALL_VERSIONS:
     ops[COUNT_0OP][v][0x03] = op_print_ret
 
-class op_nop:
+class op_nop(base_op):
     opcount = COUNT_0OP
     opcode = 0x04
     store = False
@@ -712,7 +772,7 @@ class op_nop:
 for v in ALL_VERSIONS:
     ops[COUNT_0OP][v][0x04] = op_nop
 
-class op_save:
+class op_save(base_op):
     opcount = COUNT_0OP
     opcode = 0x05
     store = False
@@ -725,7 +785,7 @@ class op_save:
 for v in [1,2,3]:
     ops[COUNT_0OP][v][0x05] = op_save
 
-class op_save4:
+class op_save4(base_op):
     opcount = COUNT_0OP
     opcode = 0x05
     store = False
@@ -738,7 +798,7 @@ class op_save4:
 for v in [4]:
     ops[COUNT_0OP][v][0x05] = op_save4
 
-class op_save5:
+class op_save5(base_op):
     opcount = COUNT_0OP
     opcode = 0x05
     store = False
@@ -751,7 +811,7 @@ class op_save5:
 for v in ALL_VERSIONS:
     ops[COUNT_0OP][v][0x05] = op_save5
 
-class op_restore:
+class op_restore(base_op):
     opcount = COUNT_0OP
     opcode = 0x06
     store = False
@@ -764,7 +824,7 @@ class op_restore:
 for v in [1,2,3]:
     ops[COUNT_0OP][v][0x06] = op_restore
 
-class op_restore4:
+class op_restore4(base_op):
     opcount = COUNT_0OP
     opcode = 0x06
     store = False
@@ -777,7 +837,7 @@ class op_restore4:
 for v in [4]:
     ops[COUNT_0OP][v][0x06] = op_restore4
 
-class op_restore5:
+class op_restore5(base_op):
     opcount = COUNT_0OP
     opcode = 0x06
     store = False
@@ -790,7 +850,7 @@ class op_restore5:
 for v in VERSION_5UP:
     ops[COUNT_0OP][v][0x06] = op_restore5
 
-class op_restart:
+class op_restart(base_op):
     opcount = COUNT_0OP
     opcode = 0x07
     store = False
@@ -803,7 +863,7 @@ class op_restart:
 for v in ALL_VERSIONS:
     ops[COUNT_0OP][v][0x07] = op_restart
 
-class op_ret_popped:
+class op_ret_popped(base_op):
     opcount = COUNT_0OP
     opcode = 0x08
     store = False
@@ -816,7 +876,7 @@ class op_ret_popped:
 for v in ALL_VERSIONS:
     ops[COUNT_0OP][v][0x08] = op_ret_popped
 
-class op_pop:
+class op_pop(base_op):
     opcount = COUNT_0OP
     opcode = 0x09
     store = False
@@ -829,7 +889,7 @@ class op_pop:
 for v in VERSION_PRE5:
     ops[COUNT_0OP][v][0x09] = op_pop
 
-class op_catch:
+class op_catch(base_op):
     opcount = COUNT_0OP
     opcode = 0x09
     store = True
@@ -842,7 +902,7 @@ class op_catch:
 for v in VERSION_5UP:
     ops[COUNT_0OP][v][0x09] = op_catch
 
-class op_quit:
+class op_quit(base_op):
     opcount = COUNT_0OP
     opcode = 0x0A
     store = False
@@ -851,11 +911,11 @@ class op_quit:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.quit()
 for v in ALL_VERSIONS:
     ops[COUNT_0OP][v][0x0A] = op_quit
 
-class op_new_line:
+class op_new_line(base_op):
     opcount = COUNT_0OP
     opcode = 0x0B
     store = False
@@ -868,7 +928,7 @@ class op_new_line:
 for v in ALL_VERSIONS:
     ops[COUNT_0OP][v][0x0B] = op_new_line
 
-class op_show_status:
+class op_show_status(base_op):
     opcount = COUNT_0OP
     opcode = 0x0C
     store = False
@@ -881,7 +941,7 @@ class op_show_status:
 for v in [3]:
     ops[COUNT_0OP][v][0x0C] = op_show_status
 
-class op_show_status4:
+class op_show_status4(base_op):
     opcount = COUNT_0OP
     opcode = 0x0C
     store = False
@@ -894,7 +954,7 @@ class op_show_status4:
 for v in VERSION_4UP:
     ops[COUNT_0OP][v][0x0C] = op_show_status4
 
-class op_verify:
+class op_verify(base_op):
     opcount = COUNT_0OP
     opcode = 0x0D
     store = False
@@ -907,7 +967,7 @@ class op_verify:
 for v in [3,4,5,6,7,8]:
     ops[COUNT_0OP][v][0x0D] = op_verify
 
-class op_ext:
+class op_ext(base_op):
     opcount = COUNT_0OP
     opcode = 0x0E
     store = False
@@ -920,7 +980,7 @@ class op_ext:
 for v in VERSION_5UP:
     ops[COUNT_0OP][v][0x0E] = op_ext
 
-class op_piracy:
+class op_piracy(base_op):
     opcount = COUNT_0OP
     opcode = 0x0F
     store = False
@@ -933,7 +993,7 @@ class op_piracy:
 for v in VERSION_5UP:
     ops[COUNT_0OP][v][0x0F] = op_piracy
 
-class op_call:
+class op_call(base_op):
     opcount = COUNT_VAR
     opcode = 0x00
     store = True
@@ -946,7 +1006,7 @@ class op_call:
 for v in [1,2,3]:
     ops[COUNT_VAR][v][0x00] = op_call
 
-class op_call_vs:
+class op_call_vs(base_op):
     opcount = COUNT_VAR
     opcode = 0x00
     store = True
@@ -959,7 +1019,7 @@ class op_call_vs:
 for v in VERSION_4UP:
     ops[COUNT_VAR][v][0x00] = op_call_vs
 
-class op_storew:
+class op_storew(base_op):
     opcount = COUNT_VAR
     opcode = 0x01
     store = False
@@ -972,7 +1032,7 @@ class op_storew:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x01] = op_storew
 
-class op_storeb:
+class op_storeb(base_op):
     opcount = COUNT_VAR
     opcode = 0x02
     store = False
@@ -985,7 +1045,7 @@ class op_storeb:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x02] = op_storeb
 
-class op_put_prop:
+class op_put_prop(base_op):
     opcount = COUNT_VAR
     opcode = 0x03
     store = False
@@ -998,7 +1058,7 @@ class op_put_prop:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x03] = op_put_prop
 
-class op_sread:
+class op_sread(base_op):
     opcount = COUNT_VAR
     opcode = 0x04
     store = False
@@ -1011,7 +1071,7 @@ class op_sread:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x04] = op_sread
 
-class op_sread:
+class op_sread(base_op):
     opcount = COUNT_VAR
     opcode = 0x04
     store = False
@@ -1024,7 +1084,7 @@ class op_sread:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x04] = op_sread
 
-class op_aread:
+class op_aread(base_op):
     opcount = COUNT_VAR
     opcode = 0x04
     store = True
@@ -1037,7 +1097,7 @@ class op_aread:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x04] = op_aread
 
-class op_print_char:
+class op_print_char(base_op):
     opcount = COUNT_VAR
     opcode = 0x05
     store = False
@@ -1050,7 +1110,7 @@ class op_print_char:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x05] = op_print_char
 
-class op_print_num:
+class op_print_num(base_op):
     opcount = COUNT_VAR
     opcode = 0x06
     store = False
@@ -1063,7 +1123,7 @@ class op_print_num:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x06] = op_print_num
 
-class op_random:
+class op_random(base_op):
     opcount = COUNT_VAR
     opcode = 0x07
     store = True
@@ -1072,11 +1132,11 @@ class op_random:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.set_variable(self.store_loc, cpu.generate_random(get_arg_value(self, cpu, 0)._signed_value()))
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x07] = op_random
 
-class op_push:
+class op_push(base_op):
     opcount = COUNT_VAR
     opcode = 0x08
     store = False
@@ -1089,7 +1149,7 @@ class op_push:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x08] = op_push
 
-class op_pull:
+class op_pull(base_op):
     opcount = COUNT_VAR
     opcode = 0x09
     store = False
@@ -1098,11 +1158,11 @@ class op_pull:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
-for v in ALL_VERSIONS:
+        cpu.set_variable(self.store_loc, get_arg_value(self, cpu, 0))
+for v in VERSION_PRE6:
     ops[COUNT_VAR][v][0x09] = op_pull
 
-class op_pull6:
+class op_pull6(base_op):
     opcount = COUNT_VAR
     opcode = 0x09
     store = True
@@ -1112,10 +1172,10 @@ class op_pull6:
         pass
     def execute(self, cpu):
         raise NotImplemented
-for v in ALL_VERSIONS:
+for v in VERSION_6UP:
     ops[COUNT_VAR][v][0x09] = op_pull6
 
-class op_split_window:
+class op_split_window(base_op):
     opcount = COUNT_VAR
     opcode = 0x0A
     store = False
@@ -1128,7 +1188,7 @@ class op_split_window:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x0A] = op_split_window
 
-class op_set_window:
+class op_set_window(base_op):
     opcount = COUNT_VAR
     opcode = 0x0B
     store = False
@@ -1141,7 +1201,7 @@ class op_set_window:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x0B] = op_set_window
 
-class op_ext_NAME2:
+class op_ext_NAME2(base_op):
     opcount = COUNT_VAR
     opcode = 0x0C
     store = True
@@ -1154,7 +1214,7 @@ class op_ext_NAME2:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x0C] = op_ext_NAME2
 
-class op_erase_window:
+class op_erase_window(base_op):
     opcount = COUNT_VAR
     opcode = 0x0D
     store = False
@@ -1167,7 +1227,7 @@ class op_erase_window:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x0D] = op_erase_window
 
-class op_erase_line:
+class op_erase_line(base_op):
     opcount = COUNT_VAR
     opcode = 0x0E
     store = False
@@ -1180,7 +1240,7 @@ class op_erase_line:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x0E] = op_erase_line
 
-class op_erase_line6:
+class op_erase_line6(base_op):
     opcount = COUNT_VAR
     opcode = 0x0E
     store = False
@@ -1193,7 +1253,7 @@ class op_erase_line6:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x0E] = op_erase_line6
 
-class op_set_cursor:
+class op_set_cursor(base_op):
     opcount = COUNT_VAR
     opcode = 0x0F
     store = False
@@ -1206,7 +1266,7 @@ class op_set_cursor:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x0F] = op_set_cursor
 
-class op_set_cursor6:
+class op_set_cursor6(base_op):
     opcount = COUNT_VAR
     opcode = 0x0F
     store = False
@@ -1219,7 +1279,7 @@ class op_set_cursor6:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x0F] = op_set_cursor6
 
-class op_get_cursor:
+class op_get_cursor(base_op):
     opcount = COUNT_VAR
     opcode = 0x10
     store = False
@@ -1232,7 +1292,7 @@ class op_get_cursor:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x10] = op_get_cursor
 
-class op_set_text_style:
+class op_set_text_style(base_op):
     opcount = COUNT_VAR
     opcode = 0x11
     store = False
@@ -1245,7 +1305,7 @@ class op_set_text_style:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x11] = op_set_text_style
 
-class op_buffer_mode:
+class op_buffer_mode(base_op):
     opcount = COUNT_VAR
     opcode = 0x12
     store = False
@@ -1258,7 +1318,7 @@ class op_buffer_mode:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x12] = op_buffer_mode
 
-class op_output_stream:
+class op_output_stream(base_op):
     opcount = COUNT_VAR
     opcode = 0x13
     store = False
@@ -1271,7 +1331,7 @@ class op_output_stream:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x13] = op_output_stream
 
-class op_output_stream5:
+class op_output_stream5(base_op):
     opcount = COUNT_VAR
     opcode = 0x13
     store = False
@@ -1284,7 +1344,7 @@ class op_output_stream5:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x13] = op_output_stream5
 
-class op_output_stream6:
+class op_output_stream6(base_op):
     opcount = COUNT_VAR
     opcode = 0x13
     store = False
@@ -1297,7 +1357,7 @@ class op_output_stream6:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x13] = op_output_stream6
 
-class op_input_stream:
+class op_input_stream(base_op):
     opcount = COUNT_VAR
     opcode = 0x14
     store = False
@@ -1310,7 +1370,7 @@ class op_input_stream:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x14] = op_input_stream
 
-class op_sound_effect:
+class op_sound_effect(base_op):
     opcount = COUNT_VAR
     opcode = 0x15
     store = False
@@ -1323,7 +1383,7 @@ class op_sound_effect:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x15] = op_sound_effect
 
-class op_read_char:
+class op_read_char(base_op):
     opcount = COUNT_VAR
     opcode = 0x16
     store = True
@@ -1336,7 +1396,7 @@ class op_read_char:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x16] = op_read_char
 
-class op_scan_table:
+class op_scan_table(base_op):
     opcount = COUNT_VAR
     opcode = 0x17
     store = True
@@ -1349,7 +1409,7 @@ class op_scan_table:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x17] = op_scan_table
 
-class op_not5:
+class op_not5(base_op):
     opcount = COUNT_VAR
     opcode = 0x18
     store = True
@@ -1362,7 +1422,7 @@ class op_not5:
 for v in VERSION_5UP:
     ops[COUNT_VAR][v][0x18] = op_not5
 
-class op_call_vn:
+class op_call_vn(base_op):
     opcount = COUNT_VAR
     opcode = 0x19
     store = False
@@ -1371,11 +1431,12 @@ class op_call_vn:
     def __init__(self):
         pass
     def execute(self, cpu):
-        raise NotImplemented
+        cpu.call(self.operands[0],self.operands[1:],None)
+        
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x19] = op_call_vn
 
-class op_call_vn2:
+class op_call_vn2(base_op):
     opcount = COUNT_VAR
     opcode = 0x1A
     store = False
@@ -1388,7 +1449,7 @@ class op_call_vn2:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x1A] = op_call_vn2
 
-class op_tokenise:
+class op_tokenise(base_op):
     opcount = COUNT_VAR
     opcode = 0x1B
     store = False
@@ -1401,7 +1462,7 @@ class op_tokenise:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x1B] = op_tokenise
 
-class op_encode_text:
+class op_encode_text(base_op):
     opcount = COUNT_VAR
     opcode = 0x1C
     store = False
@@ -1414,7 +1475,7 @@ class op_encode_text:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x1C] = op_encode_text
 
-class op_copy_table:
+class op_copy_table(base_op):
     opcount = COUNT_VAR
     opcode = 0x1D
     store = False
@@ -1427,7 +1488,7 @@ class op_copy_table:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x1D] = op_copy_table
 
-class op_print_table:
+class op_print_table(base_op):
     opcount = COUNT_VAR
     opcode = 0x1E
     store = False
@@ -1440,7 +1501,7 @@ class op_print_table:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x1E] = op_print_table
 
-class op_check_arg_count:
+class op_check_arg_count(base_op):
     opcount = COUNT_VAR
     opcode = 0x1F
     store = False
@@ -1453,7 +1514,7 @@ class op_check_arg_count:
 for v in ALL_VERSIONS:
     ops[COUNT_VAR][v][0x1F] = op_check_arg_count
 
-class op_ext_save:
+class op_ext_save(base_op):
     opcount = COUNT_EXT
     opcode = 0x00
     store = True
@@ -1466,7 +1527,7 @@ class op_ext_save:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x00] = op_ext_save
 
-class op_ext_restore:
+class op_ext_restore(base_op):
     opcount = COUNT_EXT
     opcode = 0x01
     store = True
@@ -1479,7 +1540,7 @@ class op_ext_restore:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x01] = op_ext_restore
 
-class op_ext_log_shift:
+class op_ext_log_shift(base_op):
     opcount = COUNT_EXT
     opcode = 0x02
     store = True
@@ -1492,7 +1553,7 @@ class op_ext_log_shift:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x02] = op_ext_log_shift
 
-class op_ext_art_shift:
+class op_ext_art_shift(base_op):
     opcount = COUNT_EXT
     opcode = 0x03
     store = True
@@ -1505,7 +1566,7 @@ class op_ext_art_shift:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x03] = op_ext_art_shift
 
-class op_ext_set_font:
+class op_ext_set_font(base_op):
     opcount = COUNT_EXT
     opcode = 0x04
     store = True
@@ -1518,7 +1579,7 @@ class op_ext_set_font:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x04] = op_ext_set_font
 
-class op_ext_draw_picture:
+class op_ext_draw_picture(base_op):
     opcount = COUNT_EXT
     opcode = 0x05
     store = False
@@ -1531,7 +1592,7 @@ class op_ext_draw_picture:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x05] = op_ext_draw_picture
 
-class op_ext_picture_data:
+class op_ext_picture_data(base_op):
     opcount = COUNT_EXT
     opcode = 0x06
     store = False
@@ -1544,7 +1605,7 @@ class op_ext_picture_data:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x06] = op_ext_picture_data
 
-class op_ext_erase_picture:
+class op_ext_erase_picture(base_op):
     opcount = COUNT_EXT
     opcode = 0x07
     store = False
@@ -1557,7 +1618,7 @@ class op_ext_erase_picture:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x07] = op_ext_erase_picture
 
-class op_ext_set_margins:
+class op_ext_set_margins(base_op):
     opcount = COUNT_EXT
     opcode = 0x08
     store = False
@@ -1570,7 +1631,7 @@ class op_ext_set_margins:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x08] = op_ext_set_margins
 
-class op_ext_save_undo:
+class op_ext_save_undo(base_op):
     opcount = COUNT_EXT
     opcode = 0x09
     store = True
@@ -1583,7 +1644,7 @@ class op_ext_save_undo:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x09] = op_ext_save_undo
 
-class op_ext_restore_undo:
+class op_ext_restore_undo(base_op):
     opcount = COUNT_EXT
     opcode = 0x0A
     store = True
@@ -1596,7 +1657,7 @@ class op_ext_restore_undo:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x0A] = op_ext_restore_undo
 
-class op_ext_print_unicode:
+class op_ext_print_unicode(base_op):
     opcount = COUNT_EXT
     opcode = 0x0B
     store = False
@@ -1609,7 +1670,7 @@ class op_ext_print_unicode:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x0B] = op_ext_print_unicode
 
-class op_ext_check_unicode:
+class op_ext_check_unicode(base_op):
     opcount = COUNT_EXT
     opcode = 0x0C
     store = False
@@ -1622,7 +1683,7 @@ class op_ext_check_unicode:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x0C] = op_ext_check_unicode
 
-class op_ext_move_window:
+class op_ext_move_window(base_op):
     opcount = COUNT_EXT
     opcode = 0x10
     store = False
@@ -1635,7 +1696,7 @@ class op_ext_move_window:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x10] = op_ext_move_window
 
-class op_ext_window_size:
+class op_ext_window_size(base_op):
     opcount = COUNT_EXT
     opcode = 0x11
     store = False
@@ -1648,7 +1709,7 @@ class op_ext_window_size:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x11] = op_ext_window_size
 
-class op_ext_window_style:
+class op_ext_window_style(base_op):
     opcount = COUNT_EXT
     opcode = 0x12
     store = False
@@ -1661,7 +1722,7 @@ class op_ext_window_style:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x12] = op_ext_window_style
 
-class op_ext_get_wind_prop:
+class op_ext_get_wind_prop(base_op):
     opcount = COUNT_EXT
     opcode = 0x13
     store = True
@@ -1674,7 +1735,7 @@ class op_ext_get_wind_prop:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x13] = op_ext_get_wind_prop
 
-class op_ext_scroll_window:
+class op_ext_scroll_window(base_op):
     opcount = COUNT_EXT
     opcode = 0x14
     store = False
@@ -1687,7 +1748,7 @@ class op_ext_scroll_window:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x14] = op_ext_scroll_window
 
-class op_ext_pop_stack:
+class op_ext_pop_stack(base_op):
     opcount = COUNT_EXT
     opcode = 0x15
     store = False
@@ -1700,7 +1761,7 @@ class op_ext_pop_stack:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x15] = op_ext_pop_stack
 
-class op_ext_read_mouse:
+class op_ext_read_mouse(base_op):
     opcount = COUNT_EXT
     opcode = 0x16
     store = False
@@ -1713,7 +1774,7 @@ class op_ext_read_mouse:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x16] = op_ext_read_mouse
 
-class op_ext_mouse_window:
+class op_ext_mouse_window(base_op):
     opcount = COUNT_EXT
     opcode = 0x17
     store = False
@@ -1726,7 +1787,7 @@ class op_ext_mouse_window:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x17] = op_ext_mouse_window
 
-class op_ext_push_stack:
+class op_ext_push_stack(base_op):
     opcount = COUNT_EXT
     opcode = 0x18
     store = False
@@ -1739,7 +1800,7 @@ class op_ext_push_stack:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x18] = op_ext_push_stack
 
-class op_ext_put_wind_prop:
+class op_ext_put_wind_prop(base_op):
     opcount = COUNT_EXT
     opcode = 0x19
     store = False
@@ -1752,7 +1813,7 @@ class op_ext_put_wind_prop:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x19] = op_ext_put_wind_prop
 
-class op_ext_print_form:
+class op_ext_print_form(base_op):
     opcount = COUNT_EXT
     opcode = 0x1A
     store = False
@@ -1765,7 +1826,7 @@ class op_ext_print_form:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x1A] = op_ext_print_form
 
-class op_ext_make_menu:
+class op_ext_make_menu(base_op):
     opcount = COUNT_EXT
     opcode = 0x1B
     store = False
@@ -1778,7 +1839,7 @@ class op_ext_make_menu:
 for v in ALL_VERSIONS:
     ops[COUNT_EXT][v][0x1B] = op_ext_make_menu
 
-class op_ext_picture_table:
+class op_ext_picture_table(base_op):
     opcount = COUNT_EXT
     opcode = 0x1C
     store = False

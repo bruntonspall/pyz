@@ -1,5 +1,39 @@
 import opcodes
 import ztext
+import random
+from base import number
+
+# States
+STOPPED = 0
+RUNNING = 1
+
+class RNG:
+    RANDOM = 0
+    SEQUENTIAL = 1
+    def __init__(self, seed = 0):
+        self.rng = random.Random()
+        self.seed(seed)
+    def seed(self, seed):
+        if seed > 1000:
+            self.rng.seed(seed)
+            self.mode = RNG.RANDOM
+        if seed == 0:
+            self.rng.seed()
+            self.mode = RNG.RANDOM
+        if seed > 0 and seed <= 1000:
+            self.seednum = seed
+            self.mode = RNG.SEQUENTIAL
+            self.start = 0
+        
+    def random(self, max):
+        if self.mode == RNG.RANDOM:
+            return self.rng.randint(1, max)
+        else:
+            self.start += 1
+            self.start %= self.seednum
+            return self.start
+                
+            
 
 def decode_type_byte(b):
     args = []
@@ -11,7 +45,9 @@ def decode_type_byte(b):
         
 class Op:
     def __init__(self, cpu):
+        self.bytes = []
         code = cpu._get_next_pc_byte()
+        self.bytes.append(code)
         self.operands = []
         self.optypes = []
         self.op = None
@@ -27,18 +63,23 @@ class Op:
         self.op.operands = self.operands
         self.op.optypes = self.optypes
         self.op.op_count = self.op_count
+        self.op.bytes = self.bytes
         if self.op.store:
             self.store = cpu._get_next_pc_byte()
+            self.bytes.append(self.store)
             self.op.store_loc = self.store
         if self.op.branch:
-            code = cpu._get_next_pc_byte()
+            branch = cpu._get_next_pc_byte()
+            self.bytes.append(branch)
             self.branch_condition = False
-            if code & 0x80:
+            if branch & 0x80:
                 self.branch_condition = True
-            if code & 0x40:
-                self.branch = code & 0x3F
+            if branch & 0x40:
+                self.branch = branch & 0x3F
             else:
-                self.branch = ((code & 0x3F) << 8) + cpu._get_next_pc_byte()
+                b = cpu._get_next_pc_byte()
+                self.bytes.append(b)
+                self.branch = ((branch & 0x3F) << 8) + b
             self.op.branch_loc = self.branch
             self.op.branch_condition = self.branch_condition
 
@@ -51,6 +92,8 @@ class Op:
         word = 0
         while (word & 0x8000) == 0:
             word = cpu._get_next_pc_2byte()
+            self.bytes.append(word >> 8)
+            self.bytes.append(word & 0xFF)
             self.text += [(word & 0x7c00) >> 10, (word & 0x03e0) >> 5, word & 0x001f]
 
 
@@ -65,8 +108,12 @@ class Op:
             self.optypes.append(opcodes.TYPE_VAR)
         else:
             self.optypes.append(opcodes.TYPE_SMALL)
-        self.operands.append(cpu._get_next_pc_byte())
-        self.operands.append(cpu._get_next_pc_byte())
+        b = cpu._get_next_pc_byte()
+        self.bytes.append(b)
+        self.operands.append(b)
+        b = cpu._get_next_pc_byte()
+        self.bytes.append(b)
+        self.operands.append(b)
         self.opcode = code & 0x1F
 
 
@@ -77,11 +124,16 @@ class Op:
             self.optypes.append(opcodes.TYPE_OMIT)
         else:
             self.op_count = opcodes.COUNT_1OP
-            self.optypes.append((code & (opcodes.TYPE_OMIT << 4)) >> 4)
+            self.optypes.append(opcodes.TYPES[(code & (opcodes.TYPE_OMIT << 4)) >> 4])
             if self.optypes[0] == opcodes.TYPE_LARGE:
-                self.operands.append(cpu._get_next_pc_2byte())
-            else:
-                self.operands.append(cpu._get_next_pc_byte())
+                word = cpu._get_next_pc_2byte()
+                self.bytes.append(word >> 8)
+                self.bytes.append(word & 0xFF)
+                self.operands.append(word)
+            elif self.optypes[0] == opcodes.TYPE_SMALL or self.optypes[0] == opcodes.TYPE_VAR:
+                b = cpu._get_next_pc_byte()
+                self.bytes.append(b)
+                self.operands.append(b)
         self.opcode = code & 0x0F
 
 
@@ -99,7 +151,9 @@ class Op:
     def handle_extended_form(self, cpu):
         self.form = opcodes.FORM_EXTENDED
         self.op_count = opcodes.COUNT_VAR
-        self.opcode = cpu._get_next_pc_byte()
+        b = cpu._get_next_pc_byte()
+        self.bytes.append(b)
+        self.opcode = b
         self._parse_var_args(cpu)
 
         
@@ -107,13 +161,20 @@ class Op:
         return "Op 0x%02x (form %s, opcount %s)" % (self.opcode, self.form, self.op_count)
         
     def _parse_var_args(self, cpu):
-        args = decode_type_byte(cpu._get_next_pc_byte())
+        b = cpu._get_next_pc_byte()
+        self.bytes.append(b)
+        args = decode_type_byte(b)
         for a in args:
-            self.optypes.append(a)
-            if a == opcodes.TYPE_LARGE:
-                self.operands.append(cpu._get_next_pc_2byte())
-            elif a == opcodes.TYPE_VAR or a == opcodes.TYPE_SMALL:
-                self.operands.append(cpu._get_next_pc_byte())
+            self.optypes.append(opcodes.TYPES[a])
+            if opcodes.TYPES[a] == opcodes.TYPE_LARGE:
+                word = cpu._get_next_pc_2byte()
+                self.bytes.append(word >> 8)
+                self.bytes.append(word & 0xFF)
+                self.operands.append(word)
+            elif opcodes.TYPES[a] == opcodes.TYPE_SMALL or opcodes.TYPES[a] == opcodes.TYPE_VAR:
+                b = cpu._get_next_pc_byte()
+                self.bytes.append(b)
+                self.operands.append(b)
     
     def execute(self, cpu):
         self.op.execute(cpu)
@@ -128,12 +189,14 @@ class ExecutionContext:
         self.locals = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
 class CPU:
-    def __init__(self, memory):
+    def __init__(self, memory, rng = RNG()):
         self.memory = memory
+        self.rng = rng
         self.callstack = []
         self.callstack.append(ExecutionContext())
         self.version = 0x05
         self.var_start = None
+        self.state = STOPPED
         
     def init(self):
         # Sets up the state of the VM from memory
@@ -141,7 +204,12 @@ class CPU:
         self.callstack.append(ExecutionContext())
         self.set_pc(self.memory.get_2byte(0x03))
         self.version = 0x05
+        self.state = RUNNING
         #self.next_op = self.get_next_op()
+        
+    def quit(self):
+        self.print_line(ztext.from_zscii("END OF EXECUTION"))
+        self.state = STOPPED
 
     def _calc_packed_location(self, location):
         mult = 2
@@ -156,10 +224,13 @@ class CPU:
         return self.callstack[0].locals[num]
         
     def _fetch(self):
-        self.next_op = self.get_next_op()
+        
+        if self.state == RUNNING:
+            self.next_op = self.get_next_op()
     
     def _execute(self):
-        self.next_op.execute(self)
+        if self.state == RUNNING:
+            self.next_op.execute(self)
     
     def step(self):
         self._fetch()
@@ -178,9 +249,8 @@ class CPU:
         
     def ret(self, value = None):
         old_context = self.callstack.pop(0)
-        if len(self.callstack) == 1:
-            raise EndOfExecution()
-        old_context.on_ret(value)        
+        if old_context.on_ret:
+            old_context.on_ret(value)        
         
     def set_pc(self, pc):
         self.callstack[0].pc = pc
@@ -235,6 +305,32 @@ class CPU:
     
     def print_line(self, text):
         print ztext.to_zscii(text)
+        
+    def generate_random(self, max):
+        if max <= 0:
+            self.rng.seed(max)
+        else:
+            return self.rng.random(max)
+        
+    def debug_step(self):
+        print "=== CPU STATE ==="
+        print "PC: 0x%02x" % (self.get_pc())
+        self._fetch()
+        print "Next Op: %s" % (self.next_op.op)
+        print "Locals: %s" % (self.callstack[0].locals)
+        print "Stack: %s" % (self.get_stack())
+        print "=== EXECUTE ==="
+        self._execute()
+        print "Locals: %s" % (self.callstack[0].locals)
+        print "Stack: %s" % (self.get_stack())
+    def print_state(self):
+        print "=== CPU STATE ==="
+        print "PC: 0x%02x" % (self.get_pc())
+        print "Next Op: %s" % (self.next_op.op)
+        print "Locals: %s" % (self.callstack[0].locals)
+        print "Stack: %s" % (self.get_stack())
+        print "=== END CPU STATE ==="
+        
 
 class StackEmpty(Exception):
     pass

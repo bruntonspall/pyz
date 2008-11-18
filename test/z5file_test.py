@@ -14,6 +14,12 @@ class testActualZFile(unittest.TestCase):
         self.cpu.step()
         self.cpu.step()
         self.cpu.step()
-        self.assertRaises(cpu.EndOfExecution, self.cpu.step)
+        self.assertEquals(cpu.RUNNING, self.cpu.state)
+        # This is last instruction.. but continued steps should work
+        self.cpu.step()
+        self.assertEquals(cpu.STOPPED, self.cpu.state)
+        self.cpu.step()
+        self.assertEquals(cpu.STOPPED, self.cpu.state)
+        
 if __name__ == '__main__':
     unittest.main()
