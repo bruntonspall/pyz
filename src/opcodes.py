@@ -598,7 +598,7 @@ class op_call_1s(base_op):
     def __init__(self):
         pass
     def execute(self, cpu):
-        cpu.call(self.operands[0], (), lambda r: cpu.set_variable(self.store_loc, r))
+        cpu.call(self.operands[0], [], lambda r: cpu.set_variable(self.store_loc, r))
 for v in VERSION_4UP:
     ops[COUNT_1OP][v][0x08] = op_call_1s
 
@@ -703,7 +703,7 @@ class op_call_1n(base_op):
     def __init__(self):
         pass
     def execute(self, cpu):
-        cpu.call([], [], None)
+        cpu.call(self.operands[0], [], None)
 for v in VERSION_5UP:
     ops[COUNT_1OP][v][0x0F] = op_call_1n
 

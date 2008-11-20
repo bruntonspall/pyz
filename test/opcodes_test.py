@@ -10,6 +10,14 @@ class testRoutines(unittest.TestCase):
         self.mymox = mox.Mox()
         self.cpu = self.mymox.CreateMock(cpu.CPU)
 
+    def test_can_string_op(self):
+        op = opcodes.op_or()
+        op.operands = [0x03, 0x04]
+        op.optypes = [opcodes.TYPE_SMALL, opcodes.TYPE_SMALL]
+        op.store_loc = 0x00
+        op.bytes = [0x00, 0x01]
+
+        self.assertEquals("0x08 -opcodes.op_or (0x03 0x04 ) types ([Small (1), Small (1)]) -> (0) [0x00 0x01 ]", str(op))
     def test_op_or(self):
         op = opcodes.op_or()
         op.operands = [0x03, 0x04]
@@ -300,5 +308,148 @@ class testRoutines(unittest.TestCase):
         self.mymox.ReplayAll()
         op.execute(self.cpu)
         self.mymox.VerifyAll()
+
+    def test_op_je(self):
+        op = opcodes.op_je()
+        op.operands = [0x7, 0x7]
+        op.optypes = [opcodes.TYPE_SMALL, opcodes.TYPE_SMALL]
+        op.branch_loc = 0x0C
+        op.branch_condition = True
+
+        self.mymox.ResetAll()
+        self.cpu.get_pc().AndReturn(0x04)
+        self.cpu.set_pc(0x0e)
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+
+    def test_op_jl(self):
+        op = opcodes.op_jl()
+        op.operands = [0x6, 0x7]
+        op.optypes = [opcodes.TYPE_SMALL, opcodes.TYPE_SMALL]
+        op.branch_loc = 0x0C
+        op.branch_condition = True
+
+        self.mymox.ResetAll()
+        self.cpu.get_pc().AndReturn(0x04)
+        self.cpu.set_pc(0x0e)
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+        
+    def test_op_jl(self):
+        op = opcodes.op_jl()
+        op.operands = [0x0, 0x7]
+        op.optypes = [opcodes.TYPE_SMALL, opcodes.TYPE_SMALL]
+        op.branch_loc = 0x0C
+        op.branch_condition = True
+
+        self.mymox.ResetAll()
+        self.cpu.get_pc().AndReturn(0x04)
+        self.cpu.set_pc(0x0e)
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+        
+    def test_op_store(self):
+        op = opcodes.op_store()
+        op.operands = [0x00, 0x02]
+        op.optypes = [opcodes.TYPE_VAR, opcodes.TYPE_VAR]
+
+        self.mymox.ResetAll()
+        self.cpu.get_variable(0x02).AndReturn(0x04)
+        self.cpu.set_variable(0x00, 0x04)
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+        
+    def test_op_call_2s(self):
+        op = opcodes.op_call_2s()
+        op.operands = [0x2c1f, 0x00]
+        op.optypes = [opcodes.TYPE_LARGE, opcodes.TYPE_VAR]
+        op.store_loc = 0x00
+
+        self.mymox.ResetAll()
+        self.cpu.call(0x2c1f, [0], mox.IgnoreArg())
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+        
+    def test_op_call_2n(self):
+        op = opcodes.op_call_2n()
+        op.operands = [0x2c1f, 0x00]
+        op.optypes = [opcodes.TYPE_LARGE, opcodes.TYPE_VAR]
+        op.store_loc = 0x00
+
+        self.mymox.ResetAll()
+        self.cpu.call(0x2c1f, [0], None)
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+        
+    def test_op_call_1s(self):
+        op = opcodes.op_call_1s()
+        op.operands = [0x2c1f]
+        op.optypes = [opcodes.TYPE_LARGE]
+        op.store_loc = 0x00
+
+        self.mymox.ResetAll()
+        self.cpu.call(0x2c1f, [], mox.IgnoreArg())
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+
+    def test_op_call_1n(self):
+        op = opcodes.op_call_1n()
+        op.operands = [0x2c1f]
+        op.optypes = [opcodes.TYPE_LARGE]
+        op.store_loc = 0x00
+
+        self.mymox.ResetAll()
+        self.cpu.call(0x2c1f, [], None)
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+
+    def test_op_ret(self):
+        op = opcodes.op_ret()
+        op.operands = [0x2]
+        op.optypes = [opcodes.TYPE_SMALL]
+
+        self.mymox.ResetAll()
+        self.cpu.ret(0x2)
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+
+    def test_op_rtrue(self):
+        op = opcodes.op_rtrue()
+        self.cpu.ret(1)
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+
+    def test_op_rfalse(self):
+        op = opcodes.op_rfalse()
+        self.cpu.ret(0)
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+
+    def test_op_ret_popped(self):
+        op = opcodes.op_ret_popped()
+        self.cpu.get_variable(0).AndReturn(8)
+        self.cpu.ret(8)
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+
+    def test_op_quit(self):
+        op = opcodes.op_quit()
+        self.cpu.quit()
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+
 if __name__ == '__main__':
     unittest.main()
