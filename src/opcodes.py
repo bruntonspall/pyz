@@ -1158,7 +1158,7 @@ class op_pull(base_op):
     def __init__(self):
         pass
     def execute(self, cpu):
-        cpu.set_variable(self.store_loc, get_arg_value(self, cpu, 0))
+        cpu.set_variable(self.store_loc, cpu.get_variable(0))
 for v in VERSION_PRE6:
     ops[COUNT_VAR][v][0x09] = op_pull
 

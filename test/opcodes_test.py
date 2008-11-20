@@ -399,6 +399,30 @@ class testRoutines(unittest.TestCase):
         op.execute(self.cpu)
         self.mymox.VerifyAll()
 
+    def test_op_call_vs(self):
+        op = opcodes.op_call_vs()
+        op.operands = [0x2c1f, 0x00, 0x01]
+        op.optypes = [opcodes.TYPE_LARGE, opcodes.TYPE_SMALL, opcodes.TYPE_SMALL]
+        op.store_loc = 0x00
+
+        self.mymox.ResetAll()
+        self.cpu.call(0x2c1f, [0x00, 0x01], mox.IgnoreArg())
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+
+    def test_op_call_vn(self):
+        op = opcodes.op_call_vn()
+        op.operands = [0x2c1f, 0x00, 0x01]
+        op.optypes = [opcodes.TYPE_LARGE, opcodes.TYPE_SMALL, opcodes.TYPE_SMALL]
+        op.store_loc = 0x00
+
+        self.mymox.ResetAll()
+        self.cpu.call(0x2c1f, [0x00, 0x01], None)
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+
     def test_op_call_1n(self):
         op = opcodes.op_call_1n()
         op.operands = [0x2c1f]
@@ -450,6 +474,25 @@ class testRoutines(unittest.TestCase):
         self.mymox.ReplayAll()
         op.execute(self.cpu)
         self.mymox.VerifyAll()
+        
+    def test_op_print_num(self):
+        op = opcodes.op_print_num()
+        op.operands = [0x01]
+        op.optypes = [opcodes.TYPE_SMALL]
+        self.cpu.print_line(ztext.from_zscii("1"))
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+        
+    def test_op_pull(self):
+        op = opcodes.op_pull()
+        op.store_loc = 0x01
+        self.cpu.get_variable(0).AndReturn(7)
+        self.cpu.set_variable(1, 7)
+        self.mymox.ReplayAll()
+        op.execute(self.cpu)
+        self.mymox.VerifyAll()
+        
 
 if __name__ == '__main__':
     unittest.main()
