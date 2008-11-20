@@ -202,7 +202,21 @@ class testOpcodeTranslation(unittest.TestCase):
         self.mymox.VerifyAll()                
         self.assertEquals(0x05, self.cpu.get_pc())
         
-        
+class testCpuUsesMemory(unittest.TestCase):
+    def testCanGetMemory(self):
+        mymox = mox.Mox()
+        mock_memory = mymox.CreateMock(memory.Memory)
+        c = cpu.CPU(mock_memory)
+        mock_memory.get_byte(0x04)
+        mymox.ReplayAll()
+        c.get_memory(0x04)        
+    def testCanSetMemory(self):
+        mymox = mox.Mox()
+        mock_memory = mymox.CreateMock(memory.Memory)
+        c = cpu.CPU(mock_memory)
+        mock_memory.put_byte(0x04, 0x11)
+        mymox.ReplayAll()
+        c.set_memory(0x04, 0x11)        
 class testGameState(unittest.TestCase):
     def setUp(self):
         self.mymox = mox.Mox()
@@ -224,7 +238,7 @@ class testGameState(unittest.TestCase):
         self.mymox.VerifyAll()                
 
     # Spec 6.3 The stack
-    def testCanReadAndWriteGlobalVariables(self):
+    def testCanReadAndWriteStackVariables(self):
         self.mock_memory.get_2byte(0x06).AndReturn(0x0100)
         self.mymox.ReplayAll()
 
@@ -234,18 +248,53 @@ class testGameState(unittest.TestCase):
         self.mymox.VerifyAll()                
         self.assertEquals(0x10,self.cpu.get_variable(0x00))
         self.assertEquals(0x100,self.cpu.get_variable(0x00))
-
+        
+    def testInitAndQuit(self):
+        self.mock_memory.get_2byte(0x03).AndReturn(0x0100)
+        self.mymox.ReplayAll()
+        self.assertEquals(cpu.STOPPED, self.cpu.state)
+        self.cpu.init()
+        self.assertEquals(0x100, self.cpu.get_pc())
+        self.assertEquals(cpu.RUNNING, self.cpu.state)
+        self.cpu.quit()
+        self.assertEquals(cpu.STOPPED, self.cpu.state)
+        
 class testRandom(unittest.TestCase):
     def setUp(self):
         self.mymox = mox.Mox()
         self.mock_memory = self.mymox.CreateMock(memory.Memory)
-        self.cpu = cpu.CPU(self.mock_memory)
+        self.mock_rng = self.mymox.CreateMock(cpu.RNG)
+        self.cpu = cpu.CPU(self.mock_memory, self.mock_rng)
         self.cpu.set_pc(0x00)
         
     def testCanGetARandomNumber(self):
+        self.mock_rng.random(5).AndReturn(3)
+        self.mock_rng.random(5).AndReturn(1)
         self.mymox.ReplayAll()
-        self.assertTrue(self.cpu.generate_random(5) <= 5)
-        self.assertTrue(self.cpu.generate_random(5) >= 1)
+        self.assertEquals(3,self.cpu.generate_random(5))
+        self.assertEquals(1,self.cpu.generate_random(5))
+    
+    def testCanSeedTheRNG(self):
+        self.mock_rng.seed(71)
+        self.mymox.ReplayAll()
+        self.cpu.generate_random(-71)    
+
+    def testSeedOfLessThan1000GeneratesSequential(self):
+        self.cpu = cpu.CPU(self.mock_memory)
+        self.cpu.generate_random(-5)
+        self.assertEquals(1, self.cpu.generate_random(5))
+        self.assertEquals(2, self.cpu.generate_random(5))
+        self.assertEquals(3, self.cpu.generate_random(5))
+        self.assertEquals(4, self.cpu.generate_random(5))
+        self.assertEquals(5, self.cpu.generate_random(5))
+        self.assertEquals(1, self.cpu.generate_random(5))
+        
+    def testSeedOfGreaterThan1000GeneratesRandom(self):
+        self.cpu = cpu.CPU(self.mock_memory)
+        self.cpu.generate_random(-1001)
+        val = self.cpu.generate_random(5)
+        self.assertTrue(val >= 1 and val <= 5 )
+        
         
 class testRoutines(unittest.TestCase):
     def setUp(self):
@@ -350,6 +399,7 @@ class testRoutines(unittest.TestCase):
         # add x short_1 -> sp
         # ret_popped
         # ret short_2
+
 
 
 if __name__ == '__main__':

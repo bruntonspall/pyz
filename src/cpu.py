@@ -29,8 +29,8 @@ class RNG:
         if self.mode == RNG.RANDOM:
             return self.rng.randint(1, max)
         else:
-            self.start += 1
             self.start %= self.seednum
+            self.start += 1
             return self.start
                 
             
@@ -308,7 +308,7 @@ class CPU:
         
     def generate_random(self, max):
         if max <= 0:
-            self.rng.seed(max)
+            self.rng.seed(-1*max)
         else:
             return self.rng.random(max)
         
