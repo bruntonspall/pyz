@@ -1,6 +1,7 @@
 import opcodes
 import ztext
 import random
+import io
 from base import number
 
 # States
@@ -189,7 +190,7 @@ class ExecutionContext:
         self.locals = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
 class CPU:
-    def __init__(self, memory, rng = RNG()):
+    def __init__(self, memory, rng = RNG(), iosystem = io.IOSystem(None, None)):
         self.memory = memory
         self.rng = rng
         self.callstack = []
@@ -197,6 +198,7 @@ class CPU:
         self.version = 0x05
         self.var_start = None
         self.state = STOPPED
+        self.io = iosystem
         
     def init(self):
         # Sets up the state of the VM from memory
@@ -330,6 +332,9 @@ class CPU:
         print "Locals: %s" % (self.callstack[0].locals)
         print "Stack: %s" % (self.get_stack())
         print "=== END CPU STATE ==="
+        
+    def get_io(self):
+        return self.io
         
 
 class StackEmpty(Exception):

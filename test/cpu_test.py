@@ -5,13 +5,14 @@ import opcodes
 import unittest
 import logging
 import mox
+import io
 class testOpcodeTranslation(unittest.TestCase):
     def setUp(self):
         self.memory = memory.Memory( [
         0x98, 0xE8, 0x18, 0xE8, 0x98, 0xE8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
         self.mymox = mox.Mox()
         self.mock_memory = self.mymox.CreateMock(memory.Memory)
-        self.cpu = cpu.CPU(self.mock_memory)
+        self.cpu = cpu.CPU(self.mock_memory, None, None)
         self.cpu.set_pc(0x00)
         
         
@@ -206,14 +207,14 @@ class testCpuUsesMemory(unittest.TestCase):
     def testCanGetMemory(self):
         mymox = mox.Mox()
         mock_memory = mymox.CreateMock(memory.Memory)
-        c = cpu.CPU(mock_memory)
+        c = cpu.CPU(mock_memory, None, None)
         mock_memory.get_byte(0x04)
         mymox.ReplayAll()
         c.get_memory(0x04)        
     def testCanSetMemory(self):
         mymox = mox.Mox()
         mock_memory = mymox.CreateMock(memory.Memory)
-        c = cpu.CPU(mock_memory)
+        c = cpu.CPU(mock_memory, None, None)
         mock_memory.put_byte(0x04, 0x11)
         mymox.ReplayAll()
         c.set_memory(0x04, 0x11)        
@@ -221,7 +222,7 @@ class testGameState(unittest.TestCase):
     def setUp(self):
         self.mymox = mox.Mox()
         self.mock_memory = self.mymox.CreateMock(memory.Memory)
-        self.cpu = cpu.CPU(self.mock_memory)
+        self.cpu = cpu.CPU(self.mock_memory, None, None)
         self.cpu.set_pc(0x00)
 
     # Spec 6.2 Global variables
@@ -264,7 +265,7 @@ class testRandom(unittest.TestCase):
         self.mymox = mox.Mox()
         self.mock_memory = self.mymox.CreateMock(memory.Memory)
         self.mock_rng = self.mymox.CreateMock(cpu.RNG)
-        self.cpu = cpu.CPU(self.mock_memory, self.mock_rng)
+        self.cpu = cpu.CPU(self.mock_memory, self.mock_rng, None)
         self.cpu.set_pc(0x00)
         
     def testCanGetARandomNumber(self):
@@ -300,7 +301,7 @@ class testRoutines(unittest.TestCase):
     def setUp(self):
         self.mymox = mox.Mox()
         self.mock_memory = self.mymox.CreateMock(memory.Memory)
-        self.cpu = cpu.CPU(self.mock_memory)
+        self.cpu = cpu.CPU(self.mock_memory, None, None)
         self.mock_memory.get_2byte(0x03).AndReturn(0x00) # op A0
         
     def testCanCallToAnotherRoutineAndReturn(self):
@@ -400,7 +401,15 @@ class testRoutines(unittest.TestCase):
         # ret_popped
         # ret short_2
 
-
+class IOTest(unittest.TestCase):
+    def testCPUHasInputOutputStreams(self):
+        self.mymox = mox.Mox()
+        self.mock_io = self.mymox.CreateMock(io.IOSystem)
+        self.mock_memory = self.mymox.CreateMock(memory.Memory)
+        self.cpu = cpu.CPU(self.mock_memory, None, self.mock_io)
+        self.mymox.ReplayAll()
+        self.assertEquals(self.mock_io, self.cpu.get_io())
+        
 
 if __name__ == '__main__':
     unittest.main()
