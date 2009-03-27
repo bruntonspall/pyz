@@ -252,6 +252,7 @@ class testGameState(unittest.TestCase):
         
     def testInitAndQuit(self):
         self.mock_memory.get_2byte(0x03).AndReturn(0x0100)
+	self.mock_memory.get_byte(0x00).AndReturn(5)
         self.mymox.ReplayAll()
         self.assertEquals(cpu.STOPPED, self.cpu.state)
         self.cpu.init()
@@ -303,6 +304,7 @@ class testRoutines(unittest.TestCase):
         self.mock_memory = self.mymox.CreateMock(memory.Memory)
         self.cpu = cpu.CPU(self.mock_memory, None, None)
         self.mock_memory.get_2byte(0x03).AndReturn(0x00) # op A0
+	self.mock_memory.get_byte(0x00).AndReturn(5)
         
     def testCanCallToAnotherRoutineAndReturn(self):
         # call 1s with 1OP
@@ -406,6 +408,7 @@ class IOTest(unittest.TestCase):
         self.mymox = mox.Mox()
         self.mock_io = self.mymox.CreateMock(io.IOSystem)
         self.mock_memory = self.mymox.CreateMock(memory.Memory)
+	self.mock_memory.get_byte(0x00).AndReturn(5)
         self.cpu = cpu.CPU(self.mock_memory, None, self.mock_io)
         self.mymox.ReplayAll()
         self.assertEquals(self.mock_io, self.cpu.get_io())
